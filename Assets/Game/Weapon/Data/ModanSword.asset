@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 310f531cc63818f4ab255fdcd2ad861c, type: 3}
+  m_Name: ModanSword
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Weapon.WeaponData
+  weaponJson: {fileID: 4900000, guid: 2ac1938650d224b4a80075ab80c28410, type: 3}
+  itemParameter: {fileID: 11400000, guid: 64495eac8c41e9d428baa035107e6864, type: 2}
+  weaponModelPrefab: {fileID: 4743484536361018889, guid: c402d006c67bcc44c82c7d1401086512, type: 3}
+  inventoryIcon: {fileID: 21300000, guid: 720fb0bb35b061a48adbf199e8409c67, type: 3}
+  attackVfxPrefab: {fileID: 0}
+  hitVfxPrefab: {fileID: 0}
+  attackSe: {fileID: 8300000, guid: 6c0ff5c1563f4304482ff1624a9adc6f, type: 3}
+  hitSe: {fileID: 0}
+  vfxOffset: {x: 0, y: 0, z: 0}

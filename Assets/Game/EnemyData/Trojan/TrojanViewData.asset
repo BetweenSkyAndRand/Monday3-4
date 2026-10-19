@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 656a7a80c7c84cb7878ee5e01314a2d0, type: 3}
+  m_Name: TrojanViewData
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Enemy.EnemyVirusViewData
+  uid: trojan
+  enemyVirusType: 1
+  enemyVirusPrefab: {fileID: 3306492849931282841, guid: 5dfcb226c5398044f82339aa6fb6574f, type: 3}
+  modelLocalOffset: {x: 0, y: 0, z: 0}
+  modelLocalScale: {x: 4, y: 5, z: 4}
+  animatorController: {fileID: 9100000, guid: 1629d907db6881b4db38bea025a587f9, type: 2}
+  spawnVfxPrefab: {fileID: 0}
+  hitVfxPrefab: {fileID: 0}
+  deadVfxPrefab: {fileID: 0}
+  weaponModelPrefab: {fileID: 0}
+  spawnSe: {fileID: 0}
+  attackSe: {fileID: 0}
+  deadSe: {fileID: 0}
+  damageSe: {fileID: 0}
+  spawnSeId: 
+  attackSeId: 
+  deadSeId: 
+  damageSeId: 
+  hpBarWorldOffset: {x: 0, y: 2, z: 0}
+  dropTable: {fileID: 11400000, guid: 5bd7a0272af2ef5499c8dc18f3e70141, type: 2}

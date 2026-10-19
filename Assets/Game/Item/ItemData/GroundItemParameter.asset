@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ce7f605f59defcd43aebdca3c1099f28, type: 3}
+  m_Name: GroundItemParameter
+  m_EditorClassIdentifier: Assembly-CSharp::Game.GroundItem.GroundItemParameter
+  despawnSeconds: 600
+  scatterRadius: 0.4
+  dropHeightOffset: 0.2
+  groundLayerMask:
+    serializedVersion: 2
+    m_Bits: 64
+  obstacleLayerMask:
+    serializedVersion: 2
+    m_Bits: 72
+  wallMargin: 0.3
+  dropItemsOnDeath: 1

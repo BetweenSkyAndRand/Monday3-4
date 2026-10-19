@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 14a8da75b144fda4699febf960a096f0, type: 3}
+  m_Name: ShopCatalogParameter
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Shop.ShopCatalogParameter
+  shopItems:
+  - {fileID: 11400000, guid: 18948db391eea424c91d177793dd76e9, type: 2}
+  - {fileID: 11400000, guid: 00b30957a3fc93744aa45bdcae7a64ae, type: 2}
+  maxPurchaseQuantityPerTransaction: 1000

@@ -1,0 +1,33 @@
+﻿{
+    "weaponName": "Sword",
+    "damage": 3,
+    "attackDuration": 0.7,
+    "cooldownTime": 0.800000011920929,
+    "colliderSize": 1.0,
+    "isTrigger": true,
+    "attackAnimationTrigger": "Attack",
+    "attackSeId": "",
+    "hitSeId": "",
+    "colliders": [
+        {
+            "name": "Collider_00",
+            "x": -1.0,
+            "y": 1.0
+        },
+        {
+            "name": "Collider_01",
+            "x": 0.0,
+            "y": 1.0
+        },
+        {
+            "name": "Collider_02",
+            "x": 1.0,
+            "y": 1.0
+        },
+        {
+            "name": "Collider_03",
+            "x": 0.0,
+            "y": 2.0
+        }
+    ]
+}

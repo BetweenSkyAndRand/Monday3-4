@@ -1,0 +1,46 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5fe28ffebc110e444819522d0c3aa31f, type: 3}
+  m_Name: Weapon
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Item.Parameter.ItemParameter
+  itemId: BeginnerSword
+  itemName: Sword
+  category: 0
+  maxStackSize: 1
+  description: "\u521D\u671F\u6B66\u5668"
+  purchasePrice: 10
+  isSellable: 1
+  baseSellPrice: 0
+  icon: {fileID: 21300000, guid: c5ed75392d367a54a91c0f291883114d, type: 3}
+  worldPrefab: {fileID: 3627914481889182790, guid: e0853452268ca074aa1bea98ec06771a, type: 3}
+  rarityEntries:
+  - rarity: 0
+    isEnabled: 1
+    attackPower: 20
+    healAmount: 0
+  - rarity: 1
+    isEnabled: 0
+    attackPower: 0
+    healAmount: 0
+  - rarity: 2
+    isEnabled: 0
+    attackPower: 0
+    healAmount: 0
+  - rarity: 3
+    isEnabled: 0
+    attackPower: 0
+    healAmount: 0
+  weaponData: {fileID: 11400000, guid: 68fdee60ff9392f43abb49b1edf0befc, type: 2}
+  weaponModelPrefab: {fileID: 3627914481889182790, guid: e0853452268ca074aa1bea98ec06771a, type: 3}
+  weaponModelScale: 1
+  weaponModelOffset: {x: 0, y: 0, z: 0}
+  weaponModelRotation: {x: 0, y: 0, z: 0}

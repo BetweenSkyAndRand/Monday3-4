@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4280f5ccd710cce4fb83dbc500ebcae2, type: 3}
+  m_Name: DungeonCollapseParameter
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Dungeon.DungeonCollapseParameter
+  firstDelaySeconds: 60
+  intervalSeconds: 60
+  warningDurationSeconds: 10
+  warningGlowColor: {r: 1, g: 0.3, b: 0.1, a: 1}
+  warningPulseSpeed: 8
+  screenShakeMagnitude: 0.15
+  warningSe: {fileID: 0}
+  collapseSe: {fileID: 0}
+  collapseVfxPrefab: {fileID: 0}
+  warningRingSegmentCount: 48
+  warningRingThickness: 140
+  maxWarningDistance: 90
+  warningNearColor: {r: 1, g: 0.15, b: 0.1, a: 1}
+  warningMidColor: {r: 1, g: 0.85, b: 0.15, a: 1}
+  warningFarColor: {r: 0.2, g: 1, b: 0.35, a: 1}
+  warningNearSpreadDegrees: 12
+  warningFarSpreadDegrees: 32
+  warningNearPulseSpeed: 11
+  warningFarPulseSpeed: 3
+  warningInsidePulseSpeed: 15
+  warningMinAlpha: 0.1
+  warningMaxAlpha: 0.85

@@ -1,0 +1,11 @@
+{
+  "weapons": [
+    {
+      "id": "basic_weapon",
+      "displayName": "基礎武器",
+      "attackPower": 20,
+      "attackRange": 1
+    }
+  ]
+}
+

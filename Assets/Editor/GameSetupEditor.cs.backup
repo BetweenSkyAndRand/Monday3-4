@@ -1,0 +1,1087 @@
+using System.Collections.Generic;
+using TMPro;
+using UnityEditor;
+using UnityEditor.SceneManagement;
+using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
+using UnityEngine.UI;
+
+/// <summary>
+/// Game Setup Editor Utility
+/// Unity menu: Tools > Game Setup
+///
+/// Features:
+///   1. GameOverScene auto-creation with UI
+///   2. TitleScene auto-creation with UI + TitleSceneController
+///   3. GameClearScene auto-creation with UI + GameClearView
+///   4. Build Settings scene registration
+///   5. TreasureBox prefab auto-generation
+///   6. GameScene Inspector auto-setup (GameOverHandler placement, SearchController, etc.)
+///   [ALL] Execute all above steps
+/// </summary>
+public static class GameSetupEditor
+{
+    private const string GameScenePath = "Assets/Scenes/GameScene.unity";
+    private const string GameOverScenePath = "Assets/Scenes/GameOverScene.unity";
+    private const string TitleScenePath = "Assets/Scenes/TitleScene.unity";
+    private const string GameClearScenePath = "Assets/Scenes/GameClearScene.unity";
+    private const string TreasureBoxPrefabPath = "Assets/Game/Room/Prefabs/TreasureBox.prefab";
+    // Reserved for future use:
+    // private const string BackupSceneFolder = "Assets/Scenes/Backups";
+    // private const string LocalizationDataPath = "Assets/Game/Localization/LocalizationData.asset";
+    // private const string JapaneseFontSourcePath = @"C:\Windows\Fonts\YuGothM.ttc";
+    // private const string JapaneseFontDestPath = "Assets/Game/Fonts/YuGothM.ttc";
+    // private const string JapaneseFontAssetPath = "Assets/Game/Fonts/YuGothM_JP TMP_Dynamic SDF.asset";
+
+    // ====================================================================================
+    // 1. GameOverScene Creation
+    // ====================================================================================
+
+    [MenuItem("Tools/Game Setup/01. Create GameOver Scene")]
+    public static void CreateGameOverScene()
+    {
+        if (System.IO.File.Exists(GameOverScenePath))
+        {
+            if (!EditorUtility.DisplayDialog(
+                    "Confirm",
+                    $"{GameOverScenePath} already exists. Overwrite?",
+                    "Overwrite", "Cancel"))
+            {
+                return;
+            }
+        }
+
+        var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+        // Create Canvas
+        var canvasGo = new GameObject("Canvas");
+        var canvas = canvasGo.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        var canvasScaler = canvasGo.AddComponent<CanvasScaler>();
+        canvasScaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        canvasScaler.referenceResolution = new Vector2(1920, 1080);
+        canvasScaler.matchWidthOrHeight = 0.5f;
+        canvasGo.AddComponent<GraphicRaycaster>();
+
+        // Create EventSystem
+        var eventSystemGo = new GameObject("EventSystem");
+        eventSystemGo.AddComponent<EventSystem>();
+        eventSystemGo.AddComponent<InputSystemUIInputModule>();
+
+        // Add GameOverView component (if exists)
+        Component gameOverView = null;
+        var gameOverViewType = System.Type.GetType("Game.GameOver.GameOverView");
+        if (gameOverViewType != null)
+        {
+            gameOverView = canvasGo.AddComponent(gameOverViewType);
+        }
+        else
+        {
+            Debug.LogWarning("[GameSetupEditor] GameOverView component not found. Some features may not work.");
+        }
+
+        // Create Background Image
+        var bgGo = CreateUIChild(canvasGo.transform, "Background", typeof(Image));
+        var bgImage = bgGo.GetComponent<Image>();
+        bgImage.color = new Color(0, 0, 0, 128 / 255f);
+        StretchRectTransform(bgGo.GetComponent<RectTransform>());
+
+        // Create GameOver Text
+        var gameOverTextGo = CreateUIChild(canvasGo.transform, "GameOverText", typeof(TextMeshProUGUI));
+        var gameOverText = gameOverTextGo.GetComponent<TextMeshProUGUI>();
+        gameOverText.text = "GAME OVER";
+        gameOverText.fontSize = 60;
+        gameOverText.alignment = TextAlignmentOptions.Center;
+        gameOverText.color = Color.white;
+        SetRectTransformAnchored(gameOverTextGo.GetComponent<RectTransform>(), 800, 200, new Vector2(0, 200));
+
+        // Create Inventory Text
+        var inventoryTextGo = CreateUIChild(canvasGo.transform, "InventoryText", typeof(TextMeshProUGUI));
+        var inventoryText = inventoryTextGo.GetComponent<TextMeshProUGUI>();
+        inventoryText.text = "[Final Items]\nPlayer's inventory will be displayed after implementation.";
+        inventoryText.fontSize = 26;
+        inventoryText.alignment = TextAlignmentOptions.TopLeft;
+        inventoryText.color = Color.white;
+        SetRectTransformAnchored(inventoryTextGo.GetComponent<RectTransform>(), 1200, 600, new Vector2(0, -100));
+
+        // Create Return Button
+        var buttonGo = CreateUIChild(canvasGo.transform, "ReturnToTitleButton", typeof(Image), typeof(Button));
+        SetRectTransformAnchored(buttonGo.GetComponent<RectTransform>(), 400, 80, new Vector2(0, -350));
+
+        var buttonTextGo = CreateUIChild(buttonGo.transform, "Text", typeof(TextMeshProUGUI));
+        var buttonText = buttonTextGo.GetComponent<TextMeshProUGUI>();
+        buttonText.text = "Return to Title";
+        buttonText.fontSize = 30;
+        buttonText.alignment = TextAlignmentOptions.Center;
+        buttonText.color = Color.black;
+        StretchRectTransform(buttonTextGo.GetComponent<RectTransform>());
+
+        // Assign to GameOverView
+        if (gameOverView != null)
+        {
+            var returnToTitleButtonField = gameOverView.GetType().GetField("returnToTitleButton",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
+            if (returnToTitleButtonField != null)
+            {
+                returnToTitleButtonField.SetValue(gameOverView, buttonGo.GetComponent<Button>());
+                Debug.Log("[GameSetupEditor] GameOverView.returnToTitleButton assigned.");
+            }
+            else
+            {
+                Debug.LogWarning("[GameSetupEditor] returnToTitleButton field not found. Please assign manually.");
+            }
+        }
+
+        // Save scene
+        EditorSceneManager.SaveScene(scene, GameOverScenePath);
+        EditorSceneManager.OpenScene(GameOverScenePath);
+
+        EditorUtility.DisplayDialog(
+            "Complete",
+            $"GameOverScene created.\n{GameOverScenePath}\n\nNote: EventSystem uses InputSystem.\nIf using InputSystem project, replace StandaloneInputModule with InputSystemUIInputModule.",
+            "OK");
+    }
+
+    // ====================================================================================
+    // 2. TitleScene Creation
+    // ====================================================================================
+
+    [MenuItem("Tools/Game Setup/02. Create Title Scene")]
+    public static void CreateTitleScene()
+    {
+        if (System.IO.File.Exists(TitleScenePath))
+        {
+            if (!EditorUtility.DisplayDialog(
+                    "Confirm",
+                    $"{TitleScenePath} already exists. Overwrite?",
+                    "Overwrite", "Cancel"))
+            {
+                return;
+            }
+        }
+
+        var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+        // Create Canvas
+        var canvasGo = new GameObject("Canvas");
+        var canvas = canvasGo.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        var canvasScaler = canvasGo.AddComponent<CanvasScaler>();
+        canvasScaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        canvasScaler.referenceResolution = new Vector2(1920, 1080);
+        canvasScaler.matchWidthOrHeight = 0.5f;
+        canvasGo.AddComponent<GraphicRaycaster>();
+
+        // Create EventSystem
+        var eventSystemGo = new GameObject("EventSystem");
+        eventSystemGo.AddComponent<EventSystem>();
+        eventSystemGo.AddComponent<InputSystemUIInputModule>();
+
+        // Add TitleSceneController (if exists)
+        Component titleController = null;
+        var titleControllerType = System.Type.GetType("Game.Title.TitleSceneController");
+        if (titleControllerType != null)
+        {
+            titleController = canvasGo.AddComponent(titleControllerType);
+        }
+        else
+        {
+            Debug.LogWarning("[GameSetupEditor] TitleSceneController component not found. Some features may not work.");
+        }
+
+        // Create Background Image
+        var bgGo = CreateUIChild(canvasGo.transform, "Background", typeof(Image));
+        var bgImage = bgGo.GetComponent<Image>();
+        bgImage.color = new Color(0, 0, 0, 180 / 255f);
+        StretchRectTransform(bgGo.GetComponent<RectTransform>());
+
+        // Create Title Text
+        var titleTextGo = CreateUIChild(canvasGo.transform, "TitleText", typeof(TextMeshProUGUI));
+        var titleText = titleTextGo.GetComponent<TextMeshProUGUI>();
+        titleText.text = "TITLE";
+        titleText.fontSize = 72;
+        titleText.alignment = TextAlignmentOptions.Center;
+        titleText.color = Color.white;
+        SetRectTransformAnchored(titleTextGo.GetComponent<RectTransform>(), 800, 200, new Vector2(0, 250));
+
+        // Create Start Button
+        var startButtonGo = CreateUIChild(canvasGo.transform, "StartButton", typeof(Image), typeof(Button));
+        SetRectTransformAnchored(startButtonGo.GetComponent<RectTransform>(), 400, 100, new Vector2(0, -50));
+
+        var startButtonTextGo = CreateUIChild(startButtonGo.transform, "Text", typeof(TextMeshProUGUI));
+        var startButtonText = startButtonTextGo.GetComponent<TextMeshProUGUI>();
+        startButtonText.text = "Game Start";
+        startButtonText.fontSize = 34;
+        startButtonText.alignment = TextAlignmentOptions.Center;
+        startButtonText.color = Color.black;
+        StretchRectTransform(startButtonTextGo.GetComponent<RectTransform>());
+
+        // Assign to TitleSceneController
+        if (titleController != null)
+        {
+            var startButtonField = titleController.GetType().GetField("startButton",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
+            if (startButtonField != null)
+            {
+                startButtonField.SetValue(titleController, startButtonGo.GetComponent<Button>());
+                Debug.Log("[GameSetupEditor] TitleSceneController.startButton assigned.");
+            }
+            else
+            {
+                Debug.LogWarning("[GameSetupEditor] startButton field not found. Please assign manually.");
+            }
+        }
+
+        // Save scene
+        EditorSceneManager.SaveScene(scene, TitleScenePath);
+        EditorSceneManager.OpenScene(TitleScenePath);
+
+        EditorUtility.DisplayDialog(
+            "Complete",
+            $"TitleScene created.\n{TitleScenePath}\n\nStart button -> GameScene load is implemented.\nNote: EventSystem uses InputSystem project set to InputSystemUIInputModule.",
+            "OK");
+    }
+
+    // ====================================================================================
+    // 3. GameClearScene Creation
+    // ====================================================================================
+
+    [MenuItem("Tools/Game Setup/03. Create GameClear Scene")]
+    public static void CreateGameClearScene()
+    {
+        if (System.IO.File.Exists(GameClearScenePath))
+        {
+            if (!EditorUtility.DisplayDialog(
+                    "Confirm",
+                    $"{GameClearScenePath} already exists. Overwrite?",
+                    "Overwrite", "Cancel"))
+            {
+                return;
+            }
+        }
+
+        var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+        // Create Canvas
+        var canvasGo = new GameObject("Canvas");
+        var canvas = canvasGo.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        var canvasScaler = canvasGo.AddComponent<CanvasScaler>();
+        canvasScaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        canvasScaler.referenceResolution = new Vector2(1920, 1080);
+        canvasScaler.matchWidthOrHeight = 0.5f;
+        canvasGo.AddComponent<GraphicRaycaster>();
+
+        // Create EventSystem
+        var eventSystemGo = new GameObject("EventSystem");
+        eventSystemGo.AddComponent<EventSystem>();
+        eventSystemGo.AddComponent<InputSystemUIInputModule>();
+
+        // Add GameClearView (if exists)
+        Component gameClearView = null;
+        var gameClearViewType = System.Type.GetType("Game.GameClear.GameClearView");
+        if (gameClearViewType != null)
+        {
+            gameClearView = canvasGo.AddComponent(gameClearViewType);
+        }
+        else
+        {
+            Debug.LogWarning("[GameSetupEditor] GameClearView component not found. Some features may not work.");
+        }
+
+        // Create Background Image
+        var bgGo = CreateUIChild(canvasGo.transform, "Background", typeof(Image));
+        var bgImage = bgGo.GetComponent<Image>();
+        bgImage.color = new Color(0, 0, 0, 128 / 255f);
+        StretchRectTransform(bgGo.GetComponent<RectTransform>());
+
+        // Create Clear Text
+        var clearTextGo = CreateUIChild(canvasGo.transform, "ClearText", typeof(TextMeshProUGUI));
+        var clearText = clearTextGo.GetComponent<TextMeshProUGUI>();
+        clearText.text = "CLEAR!";
+        clearText.fontSize = 72;
+        clearText.alignment = TextAlignmentOptions.Center;
+        clearText.color = Color.white;
+        SetRectTransformAnchored(clearTextGo.GetComponent<RectTransform>(), 800, 200, new Vector2(0, 200));
+
+        // Create Copyright Text
+        var copyrightGo = CreateUIChild(canvasGo.transform, "CopyrightText", typeof(TextMeshProUGUI));
+        var copyrightText = copyrightGo.GetComponent<TextMeshProUGUI>();
+        copyrightText.text = "(C)2026 Your Name";
+        copyrightText.fontSize = 18;
+        copyrightText.alignment = TextAlignmentOptions.BottomRight;
+        copyrightText.color = Color.white;
+        SetRectTransformAnchored(copyrightGo.GetComponent<RectTransform>(), 400, 50, new Vector2(400, -500));
+
+        // Create Return Button
+        var buttonGo = CreateUIChild(canvasGo.transform, "ReturnToTitleButton", typeof(Image), typeof(Button));
+        SetRectTransformAnchored(buttonGo.GetComponent<RectTransform>(), 400, 80, new Vector2(0, -300));
+
+        var buttonTextGo = CreateUIChild(buttonGo.transform, "Text", typeof(TextMeshProUGUI));
+        var buttonText = buttonTextGo.GetComponent<TextMeshProUGUI>();
+        buttonText.text = "Return to Title";
+        buttonText.fontSize = 30;
+        buttonText.alignment = TextAlignmentOptions.Center;
+        buttonText.color = Color.black;
+        StretchRectTransform(buttonTextGo.GetComponent<RectTransform>());
+
+        // Assign to GameClearView
+        if (gameClearView != null)
+        {
+            var returnToTitleButtonField = gameClearView.GetType().GetField("returnToTitleButton",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
+            if (returnToTitleButtonField != null)
+            {
+                returnToTitleButtonField.SetValue(gameClearView, buttonGo.GetComponent<Button>());
+                Debug.Log("[GameSetupEditor] GameClearView.returnToTitleButton assigned.");
+            }
+            else
+            {
+                Debug.LogWarning("[GameSetupEditor] returnToTitleButton field not found. Please assign manually.");
+            }
+        }
+
+        // Save scene
+        EditorSceneManager.SaveScene(scene, GameClearScenePath);
+        EditorSceneManager.OpenScene(GameClearScenePath);
+
+        EditorUtility.DisplayDialog(
+            "Complete",
+            $"GameClearScene created.\n{GameClearScenePath}\n\nCopyright display and Return to Title button are implemented.\nNote: Edit copyright text from Canvas/CopyrightText.",
+            "OK");
+    }
+
+    // ====================================================================================
+    // 4. Build Settings Update
+    // ====================================================================================
+
+    [MenuItem("Tools/Game Setup/04. Register All Scenes in Build Settings")]
+    public static void UpdateBuildSettings()
+    {
+        var scenes = new List<EditorBuildSettingsScene>();
+
+        // Required scenes in order
+        var scenePaths = new[]
+        {
+            TitleScenePath,
+            GameScenePath,
+            GameOverScenePath,
+            GameClearScenePath
+        };
+
+        foreach (var path in scenePaths)
+        {
+            if (System.IO.File.Exists(path))
+            {
+                scenes.Add(new EditorBuildSettingsScene(path, true));
+            }
+            else
+            {
+                Debug.LogWarning($"[GameSetupEditor] Scene not found: {path}");
+            }
+        }
+
+        EditorBuildSettings.scenes = scenes.ToArray();
+
+        var message = $"Build Settings updated.\n\n" +
+                      $"Build Index 0: TitleScene\n" +
+                      $"Build Index 1: GameScene\n" +
+                      $"Build Index 2: GameOverScene\n" +
+                      $"Build Index 3: GameClearScene\n" +
+                      $"\n\nPlease create scenes first using Menu 1-3, then execute this again.";
+
+        EditorUtility.DisplayDialog("Build Settings Updated", message, "OK");
+    }
+
+    // ====================================================================================
+    // 5. TreasureBox Prefab Creation
+    // ====================================================================================
+
+    [MenuItem("Tools/Game Setup/05. Create TreasureBox Prefab")]
+    public static void CreateTreasureBoxPrefab()
+    {
+        if (System.IO.File.Exists(TreasureBoxPrefabPath))
+        {
+            if (!EditorUtility.DisplayDialog(
+                    "Confirm",
+                    $"{TreasureBoxPrefabPath} already exists. Overwrite?",
+                    "Overwrite", "Cancel"))
+            {
+                return;
+            }
+        }
+
+        // Ensure directory exists
+        var directory = System.IO.Path.GetDirectoryName(TreasureBoxPrefabPath);
+        if (!string.IsNullOrEmpty(directory) && !System.IO.Directory.Exists(directory))
+        {
+            System.IO.Directory.CreateDirectory(directory);
+        }
+
+        try
+        {
+            // Create GameObject
+            var treasureBoxGo = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            treasureBoxGo.name = "TreasureBox";
+
+            // Add TreasureBoxView component (if exists)
+            var treasureBoxViewType = System.Type.GetType("Game.Treasure.TreasureBoxView");
+            if (treasureBoxViewType != null)
+            {
+                treasureBoxGo.AddComponent(treasureBoxViewType);
+            }
+            else
+            {
+                Debug.LogWarning("[GameSetupEditor] TreasureBoxView component not found. Prefab created without it.");
+            }
+
+            // Set material color (yellow)
+            var renderer = treasureBoxGo.GetComponent<Renderer>();
+            if (renderer != null)
+            {
+                var mat = new Material(Shader.Find("Standard"));
+                mat.color = Color.yellow;
+                renderer.sharedMaterial = mat;
+            }
+
+            // Add BoxCollider (Trigger)
+            var collider = treasureBoxGo.GetComponent<BoxCollider>();
+            if (collider != null)
+            {
+                collider.isTrigger = true;
+            }
+
+            // Save as prefab
+            PrefabUtility.SaveAsPrefabAsset(treasureBoxGo, TreasureBoxPrefabPath);
+            Object.DestroyImmediate(treasureBoxGo);
+
+            EditorUtility.DisplayDialog(
+                "Complete",
+                $"TreasureBox prefab created.\n{TreasureBoxPrefabPath}\n\n" +
+                "Next, assign to RoomObjectSpawner's Treasure Box Prefab (Menu 6 auto-assigns).",
+                "OK");
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError("[GameSetupEditor] TreasureBox prefab creation failed.");
+            Debug.LogException(ex);
+        }
+    }
+
+    // ====================================================================================
+    // 6. GameScene Inspector Auto Setup
+    // ====================================================================================
+
+    [MenuItem("Tools/Game Setup/06. GameScene Complete Setup (Add Hierarchy Objects)")]
+    public static void SetupGameSceneInspector()
+    {
+        // Open GameScene
+        if (!System.IO.File.Exists(GameScenePath))
+        {
+            EditorUtility.DisplayDialog("Error", $"GameScene not found: {GameScenePath}", "OK");
+            return;
+        }
+
+        var scene = EditorSceneManager.OpenScene(GameScenePath, OpenSceneMode.Single);
+        var log = new System.Text.StringBuilder();
+        log.AppendLine("[GameSetupEditor] GameScene Inspector Setup Started");
+        log.AppendLine("=====================================================");
+
+        bool sceneModified = false;
+
+        // 1. Check/Create GameOverHandler
+        var gameOverHandlerType = System.Type.GetType("Game.GameOver.GameOverHandler");
+        var gameOverHandler = gameOverHandlerType != null ? Object.FindAnyObjectByType(gameOverHandlerType) : null;
+        if (gameOverHandler == null)
+        {
+            if (gameOverHandlerType != null)
+            {
+                var go = new GameObject("GameOverHandler");
+                go.AddComponent(gameOverHandlerType);
+                log.AppendLine("+ Created GameOverHandler object.");
+                sceneModified = true;
+            }
+            else
+            {
+                log.AppendLine("! GameOverHandler component not found (skip).");
+            }
+        }
+        else
+        {
+            log.AppendLine("* GameOverHandler already exists (skip).");
+        }
+
+        // 2. Check/Create GameClearHandler
+        var gameClearHandlerType = System.Type.GetType("Game.GameClear.GameClearHandler");
+        var gameClearHandler = gameClearHandlerType != null ? Object.FindAnyObjectByType(gameClearHandlerType) : null;
+        if (gameClearHandler == null)
+        {
+            if (gameClearHandlerType != null)
+            {
+                var go = new GameObject("GameClearHandler");
+                go.AddComponent(gameClearHandlerType);
+                log.AppendLine("+ Created GameClearHandler object.");
+                sceneModified = true;
+            }
+            else
+            {
+                log.AppendLine("! GameClearHandler component not found (skip).");
+            }
+        }
+        else
+        {
+            log.AppendLine("* GameClearHandler already exists (skip).");
+        }
+
+        // 3. Check/Create SearchController
+        var searchControllerType = System.Type.GetType("Game.Search.SearchController");
+        var searchController = searchControllerType != null ? Object.FindAnyObjectByType(searchControllerType) : null;
+        if (searchController == null)
+        {
+            if (searchControllerType != null)
+            {
+                var go = new GameObject("SearchController");
+                go.AddComponent(searchControllerType);
+                log.AppendLine("+ Created SearchController object.");
+                sceneModified = true;
+            }
+            else
+            {
+                log.AppendLine("! SearchController component not found (skip).");
+            }
+        }
+        else
+        {
+            log.AppendLine("* SearchController already exists (skip).");
+        }
+
+        // 4. Check Player BuildModeMovementBlocker
+        var playerGridMoverType = System.Type.GetType("Game.Player.Script.PlayerGridMover");
+        var player = playerGridMoverType != null ? Object.FindAnyObjectByType(playerGridMoverType) : null;
+        if (player != null)
+        {
+            var playerGo = (player as Component)?.gameObject;
+            var blockerType = System.Type.GetType("Game.BuildMode.BuildModeMovementBlocker");
+            if (blockerType != null && playerGo != null)
+            {
+                if (playerGo.GetComponent(blockerType) == null)
+                {
+                    playerGo.AddComponent(blockerType);
+                    log.AppendLine("+ Added BuildModeMovementBlocker to Player.");
+                    sceneModified = true;
+                }
+                else
+                {
+                    log.AppendLine("* BuildModeMovementBlocker already exists (skip).");
+                }
+            }
+            else
+            {
+                log.AppendLine("! BuildModeMovementBlocker component not found (skip).");
+            }
+        }
+        else
+        {
+            log.AppendLine("! PlayerGridMover not found. Please check Player object.");
+        }
+
+        // Save scene if modified
+        if (sceneModified)
+        {
+            EditorSceneManager.SaveScene(scene);
+            log.AppendLine("\n==> Scene saved with modifications.");
+        }
+        else
+        {
+            log.AppendLine("\n==> No modifications needed.");
+        }
+
+        log.AppendLine("=====================================================");
+        Debug.Log(log.ToString());
+
+        EditorUtility.DisplayDialog(
+            "GameScene Inspector Setup Complete",
+            log.ToString(),
+            "OK");
+    }
+
+    // ====================================================================================
+    // 7. Scene Backup Helper
+    // ====================================================================================
+
+    /// <summary>Create backup of scene file with timestamp</summary>
+    private static string CreateBackup(string scenePath)
+    {
+        if (!System.IO.File.Exists(scenePath))
+        {
+            return null;
+        }
+
+        var backupFolder = "Assets/Scenes/Backups";
+        if (!System.IO.Directory.Exists(backupFolder))
+        {
+            System.IO.Directory.CreateDirectory(backupFolder);
+        }
+
+        var fileName = System.IO.Path.GetFileNameWithoutExtension(scenePath);
+        var timestamp = System.DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        var backupPath = $"{backupFolder}/{fileName}_backup_{timestamp}.unity";
+
+        System.IO.File.Copy(scenePath, backupPath, true);
+        AssetDatabase.Refresh();
+
+        return backupPath;
+    }
+
+    // ====================================================================================
+    // 8. InputModule Fix for All Scenes
+    // ====================================================================================
+
+    [MenuItem("Tools/Game Setup/08. Fix InputModule to InputSystem (All Scenes)")]
+    public static void FixInputModuleForAllScenes()
+    {
+        var scenePaths = new[] { TitleScenePath, GameScenePath, GameOverScenePath, GameClearScenePath };
+        var log = new System.Text.StringBuilder();
+        log.AppendLine("[GameSetupEditor] InputModule Replacement Started");
+        log.AppendLine("=====================================================");
+
+        foreach (var scenePath in scenePaths)
+        {
+            if (!System.IO.File.Exists(scenePath))
+            {
+                continue;
+            }
+
+            var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+            var sceneName = System.IO.Path.GetFileNameWithoutExtension(scenePath);
+
+            var eventSystem = Object.FindFirstObjectByType<EventSystem>();
+            if (eventSystem == null)
+            {
+                log.AppendLine($"! {sceneName}: EventSystem not found.");
+                continue;
+            }
+
+            // Check if already using InputSystemUIInputModule
+            if (eventSystem.GetComponent<InputSystemUIInputModule>() != null)
+            {
+                log.AppendLine($"* {sceneName}: InputSystemUIInputModule already exists (skip).");
+                continue;
+            }
+
+            // Remove StandaloneInputModule
+            var standaloneModule = eventSystem.GetComponent<StandaloneInputModule>();
+            if (standaloneModule == null)
+            {
+                log.AppendLine($"! {sceneName}: StandaloneInputModule not found.");
+                continue;
+            }
+
+            Object.DestroyImmediate(standaloneModule);
+            eventSystem.gameObject.AddComponent<InputSystemUIInputModule>();
+            EditorSceneManager.SaveScene(scene);
+
+            log.AppendLine($"+ {sceneName}: StandaloneInputModule → InputSystemUIInputModule replaced.");
+        }
+
+        log.AppendLine("=====================================================");
+        Debug.Log(log.ToString());
+
+        EditorUtility.DisplayDialog("InputModule Replacement Complete", log.ToString(), "OK");
+    }
+
+    // ====================================================================================
+    // 9. Japanese Font Setup
+    // ====================================================================================
+
+    [MenuItem("Tools/Game Setup/09. Japanese Font Setup (Dynamic TMP FontAsset)")]
+    public static void SetupJapaneseFont()
+    {
+        var fontSourcePath = @"C:\Windows\Fonts\YuGothM.ttc";
+        var fontDestPath = "Assets/Game/Fonts/YuGothM.ttc";
+
+        // Check Windows font exists
+        if (!System.IO.File.Exists(fontSourcePath))
+        {
+            EditorUtility.DisplayDialog(
+                "Error",
+                $"Windows YuGothic font not found: {fontSourcePath}\n\n" +
+                "Please use another font or install YuGothic.",
+                "OK");
+            return;
+        }
+
+        // Ensure directory exists
+        var fontDir = System.IO.Path.GetDirectoryName(fontDestPath);
+        if (!string.IsNullOrEmpty(fontDir) && !System.IO.Directory.Exists(fontDir))
+        {
+            System.IO.Directory.CreateDirectory(fontDir);
+        }
+
+        // Copy font file
+        if (!System.IO.File.Exists(fontDestPath))
+        {
+            System.IO.File.Copy(fontSourcePath, fontDestPath, true);
+            AssetDatabase.Refresh();
+        }
+
+        // Note: TMP FontAsset creation requires TextMeshPro API
+        // This is a placeholder - actual implementation would use TMP_FontAsset.CreateFontAsset()
+        Debug.LogWarning("[GameSetupEditor] Font file copied. Please create TMP FontAsset manually:\n" +
+                        "Window > TextMeshPro > Font Asset Creator");
+
+        EditorUtility.DisplayDialog(
+            "Japanese Font Setup",
+            $"Font file copied to: {fontDestPath}\n\n" +
+            "Next steps:\n" +
+            "1. Select the font in Project view\n" +
+            "2. Window > TextMeshPro > Font Asset Creator\n" +
+            "3. Generate Dynamic SDF\n" +
+            "4. Add to: Window > TextMeshPro > Settings > Fallback Font Asset List",
+            "OK");
+    }
+
+    // ====================================================================================
+    // 10. LocalizationData Creation
+    // ====================================================================================
+
+    [MenuItem("Tools/Game Setup/10. Create LocalizationData Asset")]
+    public static void CreateLocalizationData()
+    {
+        var localizationDataPath = "Assets/Game/Localization/LocalizationData.asset";
+
+        if (System.IO.File.Exists(localizationDataPath))
+        {
+            if (!EditorUtility.DisplayDialog(
+                    "Confirm",
+                    $"{localizationDataPath} already exists. Overwrite?",
+                    "Overwrite", "Cancel"))
+            {
+                return;
+            }
+        }
+
+        // Ensure directory exists
+        var directory = System.IO.Path.GetDirectoryName(localizationDataPath);
+        if (!string.IsNullOrEmpty(directory) && !System.IO.Directory.Exists(directory))
+        {
+            System.IO.Directory.CreateDirectory(directory);
+        }
+
+        // Create LocalizationData ScriptableObject
+        var localizationDataType = System.Type.GetType("Game.Localization.LocalizationData");
+        if (localizationDataType == null)
+        {
+            EditorUtility.DisplayDialog(
+                "Error",
+                "LocalizationData class not found. Please implement it first.",
+                "OK");
+            return;
+        }
+
+        var asset = ScriptableObject.CreateInstance(localizationDataType);
+
+        // Note: This would require reflection to set localization entries
+        // For now, just create empty asset
+        AssetDatabase.CreateAsset(asset, localizationDataPath);
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+
+        EditorUtility.DisplayDialog(
+            "LocalizationData Created",
+            $"Created: {localizationDataPath}\n\n" +
+            "Please add localization entries:\n" +
+            "- GameStart: ゲームスタート / Game Start\n" +
+            "- ReturnToTitle: タイトルに戻る / Return to Title\n" +
+            "- etc.\n\n" +
+            "Then assign to LanguageManager component's 'Localization Data' field.",
+            "OK");
+    }
+
+    // ====================================================================================
+    // 11. TitleScene Language Toggle
+    // ====================================================================================
+
+    [MenuItem("Tools/Game Setup/11. Add Language Toggle to TitleScene")]
+    public static void AddLanguageToggleToTitle()
+    {
+        var localizationDataPath = "Assets/Game/Localization/LocalizationData.asset";
+        if (!System.IO.File.Exists(localizationDataPath))
+        {
+            EditorUtility.DisplayDialog(
+                "Error",
+                "Please create LocalizationData first using Menu 10.",
+                "OK");
+            return;
+        }
+
+        if (!System.IO.File.Exists(TitleScenePath))
+        {
+            EditorUtility.DisplayDialog("Error", $"TitleScene not found: {TitleScenePath}", "OK");
+            return;
+        }
+
+        var scene = EditorSceneManager.OpenScene(TitleScenePath, OpenSceneMode.Single);
+        var log = new System.Text.StringBuilder();
+        log.AppendLine("[GameSetupEditor] TitleScene Language Toggle Setup Started");
+        log.AppendLine("=====================================================");
+
+        bool sceneModified = false;
+
+        // 1. Check/Create LanguageManager
+        var languageManagerType = System.Type.GetType("Game.Localization.LanguageManager");
+        var existingManager = languageManagerType != null ? Object.FindAnyObjectByType(languageManagerType) : null;
+        
+        if (existingManager == null && languageManagerType != null)
+        {
+            var managerGo = new GameObject("LanguageManager");
+            managerGo.AddComponent(languageManagerType);
+            log.AppendLine("+ Created LanguageManager object.");
+            sceneModified = true;
+        }
+        else if (existingManager != null)
+        {
+            log.AppendLine("* LanguageManager already exists (skip).");
+        }
+        else
+        {
+            log.AppendLine("! LanguageManager component not found.");
+        }
+
+        // 2. Find Canvas
+        var canvas = Object.FindFirstObjectByType<Canvas>();
+        if (canvas == null)
+        {
+            log.AppendLine("! Canvas not found. Please create TitleScene first.");
+            EditorUtility.DisplayDialog("Error", "Canvas not found.", "OK");
+            EditorSceneManager.CloseScene(scene, false);
+            return;
+        }
+
+        // 3. Check/Create TitleLanguageView
+        var titleLanguageViewType = System.Type.GetType("Game.Title.TitleLanguageView");
+        var existingView = canvas.GetComponent(titleLanguageViewType);
+
+        if (existingView == null && titleLanguageViewType != null)
+        {
+            // Create language buttons (simplified version)
+            var languagePanel = CreateUIChild(canvas.transform, "LanguagePanel", typeof(RectTransform));
+            SetRectTransformAnchored(languagePanel.GetComponent<RectTransform>(), 300, 80, new Vector2(0, -400));
+
+            // Japanese button
+            var jpButtonGo = CreateUIChild(languagePanel.transform, "JapaneseButton", typeof(Image), typeof(Button));
+            SetRectTransformAnchored(jpButtonGo.GetComponent<RectTransform>(), 140, 60, new Vector2(-75, 0));
+            var jpTextGo = CreateUIChild(jpButtonGo.transform, "Text", typeof(TextMeshProUGUI));
+            var jpText = jpTextGo.GetComponent<TextMeshProUGUI>();
+            jpText.text = "日本語";
+            jpText.fontSize = 28;
+            jpText.alignment = TextAlignmentOptions.Center;
+            jpText.color = Color.black;
+            StretchRectTransform(jpTextGo.GetComponent<RectTransform>());
+
+            // English button
+            var enButtonGo = CreateUIChild(languagePanel.transform, "EnglishButton", typeof(Image), typeof(Button));
+            SetRectTransformAnchored(enButtonGo.GetComponent<RectTransform>(), 140, 60, new Vector2(75, 0));
+            var enTextGo = CreateUIChild(enButtonGo.transform, "Text", typeof(TextMeshProUGUI));
+            var enText = enTextGo.GetComponent<TextMeshProUGUI>();
+            enText.text = "English";
+            enText.fontSize = 28;
+            enText.alignment = TextAlignmentOptions.Center;
+            enText.color = Color.black;
+            StretchRectTransform(enTextGo.GetComponent<RectTransform>());
+
+            // Add TitleLanguageView component
+            canvas.gameObject.AddComponent(titleLanguageViewType);
+
+            log.AppendLine("+ Created TitleLanguageView and language toggle buttons.");
+            sceneModified = true;
+        }
+        else if (existingView != null)
+        {
+            log.AppendLine("* TitleLanguageView already exists (skip).");
+        }
+        else
+        {
+            log.AppendLine("! TitleLanguageView component not found.");
+        }
+
+        // Save scene if modified
+        if (sceneModified)
+        {
+            EditorSceneManager.SaveScene(scene);
+            log.AppendLine("\n==> Scene saved with modifications.");
+        }
+
+        log.AppendLine("=====================================================");
+        Debug.Log(log.ToString());
+
+        EditorUtility.DisplayDialog("TitleScene Language Toggle Complete", log.ToString(), "OK");
+    }
+
+    // ====================================================================================
+    // 12. GameScene LanguageManager
+    // ====================================================================================
+
+    [MenuItem("Tools/Game Setup/12. Add LanguageManager to GameScene")]
+    public static void AddLanguageManagerToGameScene()
+    {
+        var localizationDataPath = "Assets/Game/Localization/LocalizationData.asset";
+        if (!System.IO.File.Exists(localizationDataPath))
+        {
+            EditorUtility.DisplayDialog(
+                "Error",
+                "Please create LocalizationData first using Menu 10.",
+                "OK");
+            return;
+        }
+
+        if (!System.IO.File.Exists(GameScenePath))
+        {
+            EditorUtility.DisplayDialog("Error", $"GameScene not found: {GameScenePath}", "OK");
+            return;
+        }
+
+        var scene = EditorSceneManager.OpenScene(GameScenePath, OpenSceneMode.Single);
+        var log = new System.Text.StringBuilder();
+        log.AppendLine("[GameSetupEditor] GameScene LanguageManager Setup Started");
+        log.AppendLine("=====================================================");
+
+        // Check/Create LanguageManager
+        var languageManagerType = System.Type.GetType("Game.Localization.LanguageManager");
+        var existingManager = languageManagerType != null ? Object.FindAnyObjectByType(languageManagerType) : null;
+
+        if (existingManager == null && languageManagerType != null)
+        {
+            var managerGo = new GameObject("LanguageManager");
+            managerGo.AddComponent(languageManagerType);
+            EditorSceneManager.SaveScene(scene);
+            log.AppendLine("+ Created LanguageManager object.");
+        }
+        else if (existingManager != null)
+        {
+            log.AppendLine("* LanguageManager already exists (skip).");
+        }
+        else
+        {
+            log.AppendLine("! LanguageManager component not found.");
+        }
+
+        log.AppendLine("=====================================================");
+        log.AppendLine("\nPlease assign LocalizationData asset to LanguageManager component.");
+        Debug.Log(log.ToString());
+
+        EditorUtility.DisplayDialog("GameScene LanguageManager Complete", log.ToString(), "OK");
+    }
+
+    // ====================================================================================
+    // Helper Methods
+    // ====================================================================================
+
+    /// <summary>Create UI child GameObject and attach to parent</summary>
+    private static GameObject CreateUIChild(Transform parent, string name, params System.Type[] components)
+    {
+        var go = new GameObject(name, components);
+        go.transform.SetParent(parent, false);
+        
+        // Add RectTransform if not present
+        if (go.GetComponent<RectTransform>() == null)
+        {
+            go.AddComponent<RectTransform>();
+        }
+        
+        return go;
+    }
+
+    /// <summary>Set RectTransform anchor to center with fixed size</summary>
+    private static void SetRectTransformAnchored(RectTransform rect, float width, float height, Vector2 anchoredPosition)
+    {
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = new Vector2(width, height);
+        rect.anchoredPosition = anchoredPosition;
+    }
+
+    /// <summary>Stretch RectTransform to fill parent (for button inner text)</summary>
+    private static void StretchRectTransform(RectTransform rect)
+    {
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+        rect.pivot = new Vector2(0.5f, 0.5f);
+    }
+
+    // ====================================================================================
+    // [ALL] Execute All Setup Steps
+    // ====================================================================================
+
+    [MenuItem("Tools/Game Setup/[ALL] Execute All Steps")]
+    public static void RunAll()
+    {
+        if (!EditorUtility.DisplayDialog(
+                "Execute All Steps",
+                "This will execute all setup steps.\nExisting files will be skipped.\n\nContinue?",
+                "Execute", "Cancel"))
+        {
+            return;
+        }
+
+        // 1. GameOverScene
+        if (!System.IO.File.Exists(GameOverScenePath))
+        {
+            CreateGameOverScene();
+        }
+        else
+        {
+            Debug.Log("[GameSetupEditor] GameOverScene already exists (skip).");
+        }
+
+        // 2. TitleScene
+        if (!System.IO.File.Exists(TitleScenePath))
+        {
+            CreateTitleScene();
+        }
+        else
+        {
+            Debug.Log("[GameSetupEditor] TitleScene already exists (skip).");
+        }
+
+        // 3. GameClearScene
+        if (!System.IO.File.Exists(GameClearScenePath))
+        {
+            CreateGameClearScene();
+        }
+        else
+        {
+            Debug.Log("[GameSetupEditor] GameClearScene already exists (skip).");
+        }
+
+        // 4. Build Settings
+        UpdateBuildSettings();
+
+        // 5. TreasureBox Prefab
+        if (!System.IO.File.Exists(TreasureBoxPrefabPath))
+        {
+            CreateTreasureBoxPrefab();
+        }
+        else
+        {
+            Debug.Log("[GameSetupEditor] TreasureBox prefab already exists (skip).");
+        }
+
+        EditorUtility.DisplayDialog(
+            "Complete",
+            "All setup steps executed.\n\nPlease check console for details.",
+            "OK");
+    }
+}
+
+
+
+
+
+
+
+

@@ -1,0 +1,1393 @@
+using System.Collections.Generic;
+using System.Linq;
+using Game.BuildMode;
+using Game.GameClear;
+using Game.GameOver;
+using Game.Dungeon;
+using Game.Dungeon.Spawn;
+using Game.Localization;
+using Game.Search;
+using Game.Player.Script;
+using Game.Treasure;
+using Game.Title;
+using TMPro;
+using UnityEditor;
+using UnityEditor.SceneManagement;
+using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
+using UnityEngine.SceneManagement;
+using UnityEngine.UI;
+
+/// <summary>
+/// 繧�E�繝ｼ繝繧�E�繝�Eヨ繧�E�繝�E・逕ｨ繧�E�繝�EぁE���E�繝ｦ繝ｼ繝�EぁE��ｪ繝�EぁE��・
+/// Unity 繝｡繝九Η繝ｼ縲卦ools > Game Setup縲阪°繧牙ｮ溯�E�後�E繧九・
+///
+/// 縺�E�縺阪�E�縺薙�E:
+///   1. GameOverScene 繧・UI 莉倥″縺�E�閾�E�蜍�E函謌�E
+///   2. TitleScene 繧・UI + TitleSceneController 莉倥″縺�E�閾�E�蜍�E函謌�E
+///   3. GameClearScene 繧・UI + GameClearView 莉倥″縺�E�閾�E�蜍�E函謌�E
+///   4. Build Settings 縺�E�蜈ｨ繧�E�繝ｼ繝ｳ繧剁E��諡�E�逋ｻ骭�E�
+///   5. 螳晉ｮ�E�繝励Ξ繝上ヶ繧定�E蜍�E函謌�E
+///   6. GameScene 縺�E� Inspector 繧定�E蜍�E�E��E�螳夲�E�・ameOverHandler 驟咲�E��E�繝ｻSearchController 遲峨・蜿ら�E險�E�螳夲�E�・
+///   [ALL] 荳願ｨ倥�E�縺吶∋縺�E�荳逋ｺ螳溯�E�・
+/// </summary>
+public static class GameSetupEditor
+{
+    private const string GameScenePath         = "Assets/Scenes/GameScene.unity";
+    private const string GameOverScenePath     = "Assets/Scenes/GameOverScene.unity";
+    private const string TitleScenePath        = "Assets/Scenes/TitleScene.unity";
+    private const string GameClearScenePath    = "Assets/Scenes/GameClearScene.unity";
+    private const string TreasureBoxPrefabPath  = "Assets/Game/Room/Prefabs/TreasureBox.prefab";
+    private const string BackupSceneFolder       = "Assets/Scenes/Backups";
+    private const string LocalizationDataPath    = "Assets/Game/Localization/LocalizationData.asset";
+    private const string JapaneseFontSourcePath  = @"C:\Windows\Fonts\YuGothM.ttc";
+    private const string JapaneseFontDestPath    = "Assets/Game/Fonts/YuGothM.ttc";
+    private const string JapaneseFontAssetPath   = "Assets/Game/Fonts/YuGothM_JP TMP_Dynamic SDF.asset";
+
+    // 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+    // 1. GameOverScene 繧剁E��懈�E
+    // 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+
+    [MenuItem("Tools/Game Setup/01. GameOver Scene 繧剁E��懈�E")]
+    public static void CreateGameOverScene()
+    {
+        if (System.IO.File.Exists(GameOverScenePath))
+        {
+            if (!EditorUtility.DisplayDialog(
+                    "遒ｺ隱・,
+                    $"{GameOverScenePath} 縺�E�譌｢縺�E�蟁E��惠縺励∪縺吶めE��頑嶌縺阪�E�縺�E�縺吶°・・,
+                    "荳頑嶌縺・, "繧�E�繝｣繝ｳ繧�E�繝ｫ"))
+            {
+                return;
+            }
+        }
+
+        if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+        {
+            return;
+        }
+
+        var newScene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
+
+        // 笏笏 EventSystem 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        var eventSystemGo = new GameObject("EventSystem");
+        eventSystemGo.AddComponent<EventSystem>();
+        // Input System 繝代ャ繧�E�繝ｼ繧�E�菴�E�逕ｨ縺�E�縺溘ａEInputSystemUIInputModule 繧剁E���E�逕ｨ縺吶�E�E
+        eventSystemGo.AddComponent<InputSystemUIInputModule>();
+
+        // 笏笏 Canvas 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        var canvasGo = new GameObject("Canvas");
+        var canvas = canvasGo.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        var scaler = canvasGo.AddComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920, 1080);
+        canvasGo.AddComponent<GraphicRaycaster>();
+
+        // 笏笏 GAME OVER 繧�E�繧�E�繝医Ν繝�Eく繧�E�繝�E笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        var titleGo = CreateUIChild(canvasGo, "TitleText");
+        SetAnchor(titleGo, new Vector2(0.5f, 0.75f), new Vector2(800f, 120f));
+        var titleText = titleGo.AddComponent<TextMeshProUGUI>();
+        titleText.text = "GAME OVER";
+        titleText.fontSize = 80;
+        titleText.alignment = TextAlignmentOptions.Center;
+        titleText.color = new Color(0.9f, 0.25f, 0.25f);
+
+        // 笏笏 譛邨よ戟縺�E�迚ｩ繝�Eく繧�E�繝茨�E�・ODO 繧�E�繧�E�繝厄�E�俁E��笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        var inventoryGo = CreateUIChild(canvasGo, "InventoryText");
+        SetAnchor(inventoryGo, new Vector2(0.5f, 0.45f), new Vector2(700f, 320f));
+        var inventoryText = inventoryGo.AddComponent<TextMeshProUGUI>();
+        inventoryText.text = "縲先怙邨めE�E謖�E■迚ｩ縲曾n・域收蟁E��縺輔ｓ縺�E�繧�E�繝ｳ繝吶Φ繝医Μ螳溯�E�・�E�後�E陦�E�遉ｺ・・;
+        inventoryText.fontSize = 26;
+        inventoryText.alignment = TextAlignmentOptions.Center;
+        inventoryText.color = new Color(0.85f, 0.85f, 0.85f);
+
+        // 笏笏 繧�E�繧�E�繝医Ν縺�E�謌ｻ繧九�E繧�E�繝ｳ 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        var buttonGo = CreateUIChild(canvasGo, "ReturnToTitleButton");
+        SetAnchor(buttonGo, new Vector2(0.5f, 0.13f), new Vector2(340f, 80f));
+        var buttonImage = buttonGo.AddComponent<Image>();
+        buttonImage.color = new Color(0.2f, 0.2f, 0.2f);
+        var button = buttonGo.AddComponent<Button>();
+        button.targetGraphic = buttonImage;
+
+        var buttonTextGo = CreateUIChild(buttonGo, "ButtonText");
+        SetAnchorFill(buttonTextGo);
+        var buttonText = buttonTextGo.AddComponent<TextMeshProUGUI>();
+        buttonText.text = "繧�E�繧�E�繝医Ν縺�E�謌ｻ繧・;
+        buttonText.fontSize = 30;
+        buttonText.alignment = TextAlignmentOptions.Center;
+        buttonText.color = Color.white;
+
+        // 笏笏 GameOverView 繧�E�繝ｳ繝昴・繝阪Φ繝郁�E��E�蜉 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        var gameOverView = canvasGo.AddComponent<GameOverView>();
+
+        // SerializedObject 邨檎罰縺�E� private SerializeField 縺�E�繝懊ち繝ｳ繧偵ぁE���E�繧�E�繝ｳ
+        var serializedView = new SerializedObject(gameOverView);
+        var buttonProp = serializedView.FindProperty("returnToTitleButton");
+        if (buttonProp != null)
+        {
+            buttonProp.objectReferenceValue = button;
+            serializedView.ApplyModifiedProperties();
+            Debug.Log("[GameSetupEditor] GameOverView.returnToTitleButton 繧偵ぁE���E�繧�E�繝ｳ縺励∪縺励◁E��・);
+        }
+        else
+        {
+            Debug.LogWarning("[GameSetupEditor] returnToTitleButton 繝輔ぅ繝ｼ繝ｫ繝峨′隕九▽縺九ｊ縺�E�縺帙ｓ縲よ�E蜍輔〒繧�E�繧�E�繧�E�繝ｳ縺励※縺上□縺輔＞縲・);
+        }
+
+        // 笏笏 繧�E�繝ｼ繝ｳ菫晏ｭ・笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        EditorSceneManager.SaveScene(newScene, GameOverScenePath);
+        AssetDatabase.Refresh();
+
+        Debug.Log($"[GameSetupEditor] GameOverScene 繧剁E��懈�E縺励∪縺励◁E {GameOverScenePath}");
+        EditorUtility.DisplayDialog(
+            "螳御�E�・,
+            $"GameOverScene 繧剁E��懈�E縺励∪縺励◁E��・n{GameOverScenePath}\n\n笞 EventSystem 縺�E� InputSystem 繧剁E���E�逕ｨ縺励※縺・�E�蝣�E�蜷医―nStandaloneInputModule 繧・InputSystemUIInputModule 縺�E�蟾�E�縺玲崛縺医※縺上□縺輔＞縲・,
+            "OK");
+    }
+
+    // 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+    // 2. TitleScene 繧剁E��懈�E・・I + TitleSceneController 莉倥″・・
+    // 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+
+    [MenuItem("Tools/Game Setup/02. TitleScene 繧剁E��懈�E")]
+    public static void CreateTitleScene()
+    {
+        if (System.IO.File.Exists(TitleScenePath))
+        {
+            if (!EditorUtility.DisplayDialog(
+                    "遒ｺ隱・,
+                    $"{TitleScenePath} 縺�E�譌｢縺�E�蟁E��惠縺励∪縺吶めE��頑嶌縺阪�E�縺�E�縺吶°・・,
+                    "荳頑嶌縺・, "繧�E�繝｣繝ｳ繧�E�繝ｫ"))
+            {
+                return;
+            }
+        }
+
+        if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+        {
+            return;
+        }
+
+        var newScene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
+
+        // 笏笏 EventSystem 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        var eventSystemGo = new GameObject("EventSystem");
+        eventSystemGo.AddComponent<EventSystem>();
+        // Input System 繝代ャ繧�E�繝ｼ繧�E�菴�E�逕ｨ縺�E�縺溘ａEInputSystemUIInputModule 繧剁E���E�逕ｨ縺吶�E�E
+        eventSystemGo.AddComponent<InputSystemUIInputModule>();
+
+        // 笏笏 Canvas 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        var canvasGo = new GameObject("Canvas");
+        var canvas = canvasGo.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        var scaler = canvasGo.AddComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920, 1080);
+        canvasGo.AddComponent<GraphicRaycaster>();
+
+        // 笏笏 繧�E�繧�E�繝医Ν繝�Eく繧�E�繝�E笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        var titleGo = CreateUIChild(canvasGo, "TitleText");
+        SetAnchor(titleGo, new Vector2(0.5f, 0.68f), new Vector2(900f, 150f));
+        var titleText = titleGo.AddComponent<TextMeshProUGUI>();
+        titleText.text = "MapTest";
+        titleText.fontSize = 90;
+        titleText.alignment = TextAlignmentOptions.Center;
+        titleText.color = Color.white;
+
+        // 笏笏 繧�E�繧�E�繝ｼ繝医・繧�E�繝ｳ 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        var startButtonGo = CreateUIChild(canvasGo, "StartButton");
+        SetAnchor(startButtonGo, new Vector2(0.5f, 0.35f), new Vector2(340f, 90f));
+        var startButtonImage = startButtonGo.AddComponent<Image>();
+        startButtonImage.color = new Color(0.15f, 0.55f, 0.15f);
+        var startButton = startButtonGo.AddComponent<Button>();
+        startButton.targetGraphic = startButtonImage;
+
+        var startButtonTextGo = CreateUIChild(startButtonGo, "ButtonText");
+        SetAnchorFill(startButtonTextGo);
+        var startButtonText = startButtonTextGo.AddComponent<TextMeshProUGUI>();
+        startButtonText.text = "繧�E�繝ｼ繝繧�E�繧�E�繝ｼ繝�E;
+        startButtonText.fontSize = 34;
+        startButtonText.alignment = TextAlignmentOptions.Center;
+        startButtonText.color = Color.white;
+
+        // 笏笏 TitleSceneController 繧�E�繝ｳ繝昴・繝阪Φ繝郁�E��E�蜉 笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        var titleController = canvasGo.AddComponent<TitleSceneController>();
+
+        // SerializedObject 邨檎罰縺�E�繝懊ち繝ｳ繧偵ぁE���E�繧�E�繝ｳ
+        var serializedController = new SerializedObject(titleController);
+        var startButtonProp = serializedController.FindProperty("startButton");
+        if (startButtonProp != null)
+        {
+            startButtonProp.objectReferenceValue = startButton;
+            serializedController.ApplyModifiedProperties();
+            Debug.Log("[GameSetupEditor] TitleSceneController.startButton 繧偵ぁE���E�繧�E�繝ｳ縺励∪縺励◁E��・);
+        }
+        else
+        {
+            Debug.LogWarning("[GameSetupEditor] startButton 繝輔ぅ繝ｼ繝ｫ繝峨′隕九▽縺九ｊ縺�E�縺帙ｓ縲よ�E蜍輔〒繧�E�繧�E�繧�E�繝ｳ縺励※縺上□縺輔＞縲・);
+        }
+
+        // 笏笏 繧�E�繝ｼ繝ｳ菫晏ｭ・笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        EditorSceneManager.SaveScene(newScene, TitleScenePath);
+        AssetDatabase.Refresh();
+
+        Debug.Log($"[GameSetupEditor] TitleScene 繧剁E��懈�E縺励∪縺励◁E {TitleScenePath}");
+        EditorUtility.DisplayDialog(
+            "螳御�E�・,
+            $"TitleScene 繧剁E��懈�E縺励∪縺励◁E��・n{TitleScenePath}\n\n繧�E�繧�E�繝ｼ繝医・繧�E�繝ｳ 竊�EGameScene 繝ｭ繝ｼ繝峨′螳溯�E�・�E�医∩縺�E�縺吶・n笞 EventSystem 縺�E� InputSystem 繝励Ο繧�E�繧�E�繧�E�繝医〒縺�E� InputSystemUIInputModule 縺�E�蟾�E�縺玲崛縺医※縺上□縺輔＞縲・,
+            "OK");
+    }
+
+    // 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+    // 3. GameClearScene 繧剁E��懈�E・・I + GameClearView 莉倥″・・
+    // 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+
+    [MenuItem("Tools/Game Setup/03. GameClearScene 繧剁E��懈�E")]
+    public static void CreateGameClearScene()
+    {
+        if (System.IO.File.Exists(GameClearScenePath))
+        {
+            if (!EditorUtility.DisplayDialog(
+                    "遒ｺ隱・,
+                    $"{GameClearScenePath} 縺�E�譌｢縺�E�蟁E��惠縺励∪縺吶めE��頑嶌縺阪�E�縺�E�縺吶°・・,
+                    "荳頑嶌縺・, "繧�E�繝｣繝ｳ繧�E�繝ｫ"))
+            {
+                return;
+            }
+        }
+
+        if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+        {
+            return;
+        }
+
+        var newScene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
+
+        // 笏笏 EventSystem 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        var eventSystemGo = new GameObject("EventSystem");
+        eventSystemGo.AddComponent<EventSystem>();
+        // Input System 繝代ャ繧�E�繝ｼ繧�E�菴�E�逕ｨ縺�E�縺溘ａEInputSystemUIInputModule 繧剁E���E�逕ｨ縺吶�E�E
+        eventSystemGo.AddComponent<InputSystemUIInputModule>();
+
+        // 笏笏 Canvas 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        var canvasGo = new GameObject("Canvas");
+        var canvas = canvasGo.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        var scaler = canvasGo.AddComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920, 1080);
+        canvasGo.AddComponent<GraphicRaycaster>();
+
+        // 笏笏 GAME CLEAR 繝�Eく繧�E�繝�E笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        var clearTextGo = CreateUIChild(canvasGo, "ClearText");
+        SetAnchor(clearTextGo, new Vector2(0.5f, 0.72f), new Vector2(900f, 130f));
+        var clearText = clearTextGo.AddComponent<TextMeshProUGUI>();
+        clearText.text = "GAME CLEAR";
+        clearText.fontSize = 84;
+        clearText.alignment = TextAlignmentOptions.Center;
+        clearText.color = new Color(1f, 0.85f, 0.1f);
+
+        // 笏笏 闡嶺�E�懈ｨ�E�陦�E�遉ｺ 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        var copyrightGo = CreateUIChild(canvasGo, "CopyrightText");
+        SetAnchor(copyrightGo, new Vector2(0.5f, 0.5f), new Vector2(700f, 80f));
+        var copyrightText = copyrightGo.AddComponent<TextMeshProUGUI>();
+        copyrightText.text = "�E�ｩ 2026 MapTest Development Team";
+        copyrightText.fontSize = 24;
+        copyrightText.alignment = TextAlignmentOptions.Center;
+        copyrightText.color = new Color(0.7f, 0.7f, 0.7f);
+
+        // 笏笏 繧�E�繧�E�繝医Ν縺�E�謌ｻ繧九�E繧�E�繝ｳ 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        var buttonGo = CreateUIChild(canvasGo, "ReturnToTitleButton");
+        SetAnchor(buttonGo, new Vector2(0.5f, 0.2f), new Vector2(340f, 80f));
+        var buttonImage = buttonGo.AddComponent<Image>();
+        buttonImage.color = new Color(0.2f, 0.2f, 0.2f);
+        var button = buttonGo.AddComponent<Button>();
+        button.targetGraphic = buttonImage;
+
+        var buttonTextGo = CreateUIChild(buttonGo, "ButtonText");
+        SetAnchorFill(buttonTextGo);
+        var buttonText = buttonTextGo.AddComponent<TextMeshProUGUI>();
+        buttonText.text = "繧�E�繧�E�繝医Ν縺�E�謌ｻ繧・;
+        buttonText.fontSize = 30;
+        buttonText.alignment = TextAlignmentOptions.Center;
+        buttonText.color = Color.white;
+
+        // 笏笏 GameClearView 繧�E�繝ｳ繝昴・繝阪Φ繝郁�E��E�蜉 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        var gameClearView = canvasGo.AddComponent<GameClearView>();
+
+        // SerializedObject 邨檎罰縺�E�繝懊ち繝ｳ繧偵ぁE���E�繧�E�繝ｳ
+        var serializedView = new SerializedObject(gameClearView);
+        var buttonProp = serializedView.FindProperty("returnToTitleButton");
+        if (buttonProp != null)
+        {
+            buttonProp.objectReferenceValue = button;
+            serializedView.ApplyModifiedProperties();
+            Debug.Log("[GameSetupEditor] GameClearView.returnToTitleButton 繧偵ぁE���E�繧�E�繝ｳ縺励∪縺励◁E��・);
+        }
+        else
+        {
+            Debug.LogWarning("[GameSetupEditor] returnToTitleButton 繝輔ぅ繝ｼ繝ｫ繝峨′隕九▽縺九ｊ縺�E�縺帙ｓ縲よ�E蜍輔〒繧�E�繧�E�繧�E�繝ｳ縺励※縺上□縺輔＞縲・);
+        }
+
+        // 笏笏 繧�E�繝ｼ繝ｳ菫晏ｭ・笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        EditorSceneManager.SaveScene(newScene, GameClearScenePath);
+        AssetDatabase.Refresh();
+
+        Debug.Log($"[GameSetupEditor] GameClearScene 繧剁E��懈�E縺励∪縺励◁E {GameClearScenePath}");
+        EditorUtility.DisplayDialog(
+            "螳御�E�・,
+            $"GameClearScene 繧剁E��懈�E縺励∪縺励◁E��・n{GameClearScenePath}\n\n闡嶺�E�懈ｨ�E�陦�E�遉ｺ繝ｻ繧�E�繧�E�繝医Ν縺�E�謌ｻ繧九�E繧�E�繝ｳ縺悟ｮ溯�E�・�E�医∩縺�E�縺吶・n笞 闡嶺�E�懈ｨ�E�繝�Eく繧�E�繝医・ Canvas/CopyrightText 縺九ｉ邱�E�髮・�E�縺�E�縺上□縺輔＞縲・,
+            "OK");
+    }
+
+    // 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+    // 4. Build Settings 縺�E�蜈ｨ繧�E�繝ｼ繝ｳ繧堤匳骭�E�
+    // 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+
+    [MenuItem("Tools/Game Setup/04. Build Settings 縺�E�繧�E�繝ｼ繝ｳ繧堤匳骭�E�")]
+    public static void RegisterScenesInBuildSettings()
+    {
+        var targetPaths = new[]
+        {
+            GameScenePath,
+            GameOverScenePath,
+            TitleScenePath,
+            GameClearScenePath,
+        };
+
+        var currentScenes = EditorBuildSettings.scenes.ToList();
+        var currentPaths = new HashSet<string>(currentScenes.Select(s => s.path));
+
+        var addedPaths = new List<string>();
+        var skippedPaths = new List<string>();
+
+        foreach (var path in targetPaths)
+        {
+            if (currentPaths.Contains(path))
+            {
+                Debug.Log($"[GameSetupEditor] 譌｢縺�E�逋ｻ骭�E�貂医∩・医せ繧�E�繝�E・・・ {path}");
+                continue;
+            }
+
+            if (!System.IO.File.Exists(path))
+            {
+                skippedPaths.Add(path);
+                Debug.LogWarning($"[GameSetupEditor] 繝輔ぃ繧�E�繝ｫ縺悟ｭ伜惠縺励↑縺・◁E��√せ繧�E�繝�E・・亥・縺�E�繧�E�繝ｼ繝ｳ菴懈�E縺励※縺上□縺輔＞�E・ {path}");
+                continue;
+            }
+
+            currentScenes.Add(new EditorBuildSettingsScene(path, enabled: true));
+            addedPaths.Add(path);
+        }
+
+        EditorBuildSettings.scenes = currentScenes.ToArray();
+
+        var message = $"Build Settings 繧呈峩譁E��縺励∪縺励◁E��・n\n" +
+                      $"笨・霑ｽ蜉: {addedPaths.Count} 繧�E�繝ｼ繝ｳ\n" +
+                      string.Join("\n", addedPaths.Select(p => $"  窶�E� {p}"));
+
+        if (skippedPaths.Count > 0)
+        {
+            message += $"\n\n笞 繝輔ぃ繧�E�繝ｫ譛ｪ蟁E��惠縺�E�縺溘ａ繧�E�繧�E�繝�E・: {skippedPaths.Count} 繧�E�繝ｼ繝ｳ\n" +
+                       string.Join("\n", skippedPaths.Select(p => $"  窶�E� {p}")) +
+                       "\n\n繝｡繝九Η繝ｼ 1縲・ 縺�E�繧�E�繝ｼ繝ｳ繧貞�E縺�E�菴懈�E縺励※縺九ｉ蜀榊ｮ溯�E�後＠縺�E�縺上□縺輔＞縲・;
+        }
+
+        Debug.Log($"[GameSetupEditor] Build Settings 譖ｴ譁E��螳御�E�・りｿ�E�蜉: {addedPaths.Count} / 繧�E�繧�E�繝�E・: {skippedPaths.Count}");
+        EditorUtility.DisplayDialog("Build Settings 譖ｴ譁E��螳御�E�・, message, "OK");
+    }
+
+    // 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+    // 5. 螳晉ｮ�E�繝励Ξ繝上ヶ繧定�E蜍�E函謌�E
+    // 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+
+    [MenuItem("Tools/Game Setup/05. 螳晉ｮ�E�繝励Ξ繝上ヶ繧剁E��懈�E")]
+    public static void CreateTreasureBoxPrefab()
+    {
+        if (System.IO.File.Exists(TreasureBoxPrefabPath))
+        {
+            if (!EditorUtility.DisplayDialog(
+                    "遒ｺ隱・,
+                    $"{TreasureBoxPrefabPath} 縺�E�譌｢縺�E�蟁E��惠縺励∪縺吶めE��頑嶌縺阪�E�縺�E�縺吶°・・,
+                    "荳頑嶌縺・, "繧�E�繝｣繝ｳ繧�E�繝ｫ"))
+            {
+                return;
+            }
+        }
+
+        // 繝励Ξ繝上ヶ菫晏ｭ伜�E繝輔か繝ｫ繝繧堤�E��E�隱阪・菴懈�E
+        const string prefabFolder = "Assets/Game/Room/Prefabs";
+        if (!AssetDatabase.IsValidFolder(prefabFolder))
+        {
+            AssetDatabase.CreateFolder("Assets/Game/Room", "Prefabs");
+            Debug.Log($"[GameSetupEditor] 繝輔か繝ｫ繝繧剁E��懈�E縺励∪縺励◁E {prefabFolder}");
+        }
+
+        // 螳晉ｮ�E� GameObject 繧剁E��懈�E
+        var treasureBoxGo = new GameObject("TreasureBox");
+
+        // 笏笏 3D隕九◆逶�E�・・ube・俁E��笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        // 繝｢繝�EΝ譛ｪ遒ｺ螳壹・縺溘ａ莉�E�縺�E�Cube繧剁E���E�逕ｨ縲めE��繧・≧縺弱�E�E��薙�E繝｢繝�EΝ驕ｸ螳壼�E�後�E蟾�E�縺玲崛縺医�E�縺薙�E縲・
+        var meshFilter = treasureBoxGo.AddComponent<MeshFilter>();
+        meshFilter.sharedMesh = Resources.GetBuiltinResource<Mesh>("Cube.fbx");
+        var meshRenderer = treasureBoxGo.AddComponent<MeshRenderer>();
+        // 襍､濶�E�繝槭ユ繝ｪ繧�E�繝ｫ繧剁E��懈�E・井ｻ墓ｧ・ 螳晉ｮ�E�縺�E�襍､・・
+        var redMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+        redMaterial.color = new Color(0.8f, 0.1f, 0.1f);
+        meshRenderer.sharedMaterial = redMaterial;
+
+        // 螳晉ｮ�E�繧峨�E�縺・せ繧�E�繝ｼ繝ｫ縺�E�險�E�螳夲�E�・.8 x 0.6 x 0.8・・
+        treasureBoxGo.transform.localScale = new Vector3(0.8f, 0.6f, 0.8f);
+
+        // 笏笏 BoxCollider・・layerInteract 縺�E� OverlapSphere 縺�E�讀懷・縺輔ｌ繧九◆繧√�E蠢・�E�茨�E�俁E��笏
+        var boxCollider = treasureBoxGo.AddComponent<BoxCollider>();
+        boxCollider.isTrigger = false; // IsTrigger=false 縺�E�髫懷�E��E�迚ｩ縺�E�縺励※讖溯・縺輔○繧・
+
+        // 笏笏 TreasureBoxController 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        treasureBoxGo.AddComponent<TreasureBoxController>();
+
+        // 笏笏 繝励Ξ繝上ヶ縺�E�縺励※菫晏ｭ・笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        var prefab = PrefabUtility.SaveAsPrefabAsset(treasureBoxGo, TreasureBoxPrefabPath);
+        Object.DestroyImmediate(treasureBoxGo);
+        AssetDatabase.Refresh();
+
+        if (prefab != null)
+        {
+            Debug.Log($"[GameSetupEditor] 螳晉ｮ�E�繝励Ξ繝上ヶ繧剁E��懈�E縺励∪縺励◁E {TreasureBoxPrefabPath}");
+            EditorUtility.DisplayDialog(
+                "螳御�E�・,
+                $"螳晉ｮ�E�繝励Ξ繝上ヶ繧剁E��懈�E縺励∪縺励◁E��・n{TreasureBoxPrefabPath}\n\n" +
+                "笞 迴�E�蝨�E�縺�E�莉ｮ縺�E�襍､縺Гube縺�E�縺吶めE��繧・≧縺弱�E�E��薙�E繝｢繝�EΝ驕ｸ螳壼�E�後�E蟾�E�縺玲崛縺医※縺上□縺輔＞縲・n" +
+                "谺�E�縺�E� RoomObjectSpawner 縺�E� Treasure Box Prefab 縺�E�繧�E�繧�E�繧�E�繝ｳ縺励※縺上□縺輔＞�E医Γ繝九Η繝ｼ6縺�E�閾�E�蜍�E�E��E�螳壼庁E�E峨・,
+                "OK");
+        }
+        else
+        {
+            Debug.LogError("[GameSetupEditor] 螳晉ｮ�E�繝励Ξ繝上ヶ縺�E�菴懈�E縺�E�螟ｱ謨励�E�縺�E�縺励◁E��・);
+        }
+    }
+
+    // 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+    // 6. GameScene 螳悟�E繧�E�繝�Eヨ繧�E�繝�E・・医ヲ繧�E�繝ｩ繝ｫ繧�E�繝ｼ蜀咲樁E+ Inspector 險�E�螳夲�E�・
+    // 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+
+    [MenuItem("Tools/Game Setup/06. GameScene 螳悟�E繧�E�繝�Eヨ繧�E�繝�E・・医ヲ繧�E�繝ｩ繝ｫ繧�E�繝ｼ蜀咲樟�E・)]
+    public static void SetupGameSceneInspector()
+    {
+        if (!System.IO.File.Exists(GameScenePath))
+        {
+            EditorUtility.DisplayDialog("Info", "Operation completed", "OK");
+            return;
+        }
+
+        if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+        {
+            return;
+        }
+
+        // 笏笏 Step 0: GameScene 縺�E�繝�Eャ繧�E�繧�E�繝�E・繧剁E��懈�E 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        // 繧�E�繝�Eヨ繧�E�繝�E・蜑阪・迥�E�諷九ａEBackups 繝輔か繝ｫ繝縺�E�繧�E�繧�E�繝繧�E�繧�E�繝ｳ繝嶺�E�倥″縺�E�菫晏ｭ倥☁E��九・
+        CreateGameSceneBackup();
+
+        // 笏笏 GameScene 繧帝幕縺・笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        // 譌｢縺�E� GameScene 縺後い繧�E�繝�EぁE��悶↑蝣�E�蜷医・ OpenSceneMode.Single 縺�E�蜀崎ｪ�E�縺�E�霎ｼ縺�E�縺帙�E
+        // 縺昴・縺�E�縺�E�菴�E�逕ｨ縺吶�E�縲�E�ingle 縺�E�髢九￥縺�E�繧�E�繝ｼ繝ｳ荳翫・譛ｪ菫晏ｭ倥が繝悶ず繧�E�繧�E�繝医′豸医∴繧九◆繧√・
+        var activeScene = SceneManager.GetActiveScene();
+        var gameScene = activeScene.path == GameScenePath
+            ? activeScene
+            : EditorSceneManager.OpenScene(GameScenePath, OpenSceneMode.Additive);
+
+        if (activeScene.path != GameScenePath)
+        {
+            SceneManager.SetActiveScene(gameScene);
+        }
+
+        var log = new System.Text.StringBuilder();
+        log.AppendLine("[GameSetupEditor] GameScene 螳悟�E繧�E�繝�Eヨ繧�E�繝�E・髢句�E�・);
+        log.AppendLine("笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏");
+
+        // 笏笏 Step 1: TreasureBox 繝励Ξ繝上ヶ繧堤�E��E�隱阪・菴懈�E 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        if (!System.IO.File.Exists(TreasureBoxPrefabPath))
+        {
+            CreateTreasureBoxPrefabInternal(log);
+        }
+        else
+        {
+            log.AppendLine("邁E�� 螳晉ｮ�E�繝励Ξ繝上ヶ縺�E�譌｢縺�E�蟁E��惠縺励∪縺呻�E�医せ繧�E�繝�E・・峨・);
+        }
+
+        // 笏笏 Step 2: GameOverHandler 繧堤�E��E�隱阪・菴懈�E 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        var gameOverHandler = Object.FindFirstObjectByType<GameOverHandler>();
+        if (gameOverHandler == null)
+        {
+            var handlerGo = new GameObject("GameOverHandler");
+            gameOverHandler = handlerGo.AddComponent<GameOverHandler>();
+            log.AppendLine("笨・GameOverHandler 繧�E�繝悶ず繧�E�繧�E�繝医�E�菴懈�E縺励∪縺励◁E��・);
+        }
+        else
+        {
+            log.AppendLine("邁E�� GameOverHandler 縺�E�譌｢縺�E�蟁E��惠縺励∪縺呻�E�医せ繧�E�繝�E・・峨・);
+        }
+
+        // 笏笏 Step 2.5: GameClearHandler 繧堤�E��E�隱阪・菴懈�E 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        if (Object.FindFirstObjectByType<GameClearHandler>() == null)
+        {
+            var clearHandlerGo = new GameObject("GameClearHandler");
+            clearHandlerGo.AddComponent<GameClearHandler>();
+            log.AppendLine("笨・GameClearHandler 繧�E�繝悶ず繧�E�繧�E�繝医�E�菴懈�E縺励∪縺励◁E��・);
+        }
+        else
+        {
+            log.AppendLine("邁E�� GameClearHandler 縺�E�譌｢縺�E�蟁E��惠縺励∪縺呻�E�医せ繧�E�繝�E・・峨・);
+        }
+
+        // 笏笏 Step 3: SearchController 繧堤�E��E�隱阪・菴懈�E 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        var searchController = Object.FindFirstObjectByType<SearchController>();
+        if (searchController == null)
+        {
+            var scGo = new GameObject("SearchController");
+            searchController = scGo.AddComponent<SearchController>();
+            log.AppendLine("笨・SearchController 繧�E�繝悶ず繧�E�繧�E�繝医�E�菴懈�E縺励∪縺励◁E��・);
+        }
+        else
+        {
+            log.AppendLine("邁E�� SearchController 縺�E�譌｢縺�E�蟁E��惠縺励∪縺呻�E�医せ繧�E�繝�E・・峨・);
+        }
+
+        // 笏笏 Step 4: SearchEndInteractableView 繧堤�E��E�隱阪・菴懈�E 笏笏笏笏笏笏笏笏笏笏笏
+        var searchEndView = Object.FindFirstObjectByType<SearchEndInteractableView>();
+        if (searchEndView == null)
+        {
+            var seGo = new GameObject("SearchEndInteractableView");
+            seGo.transform.position = new Vector3(0f, 0.5f, -8f);
+            var seCol = seGo.AddComponent<BoxCollider>();
+            seCol.isTrigger = false;
+            searchEndView = seGo.AddComponent<SearchEndInteractableView>();
+            log.AppendLine("笨・SearchEndInteractableView 繧�E�繝悶ず繧�E�繧�E�繝医�E�菴懈�E縺励∪縺励◁E�E井ｽ咲�E��E�: z=-8・峨・);
+        }
+        else
+        {
+            log.AppendLine("邁E�� SearchEndInteractableView 縺�E�譌｢縺�E�蟁E��惠縺励∪縺呻�E�医せ繧�E�繝�E・・峨・);
+        }
+
+        // 笏笏 Step 5: SearchStartTriggerView 繧堤�E��E�隱阪・菴懈�E・・ 蛟�E�E�・笏笏笏笏笏笏笏笏
+        var searchStartViews = Object.FindObjectsByType<SearchStartTriggerView>(FindObjectsSortMode.None);
+        SearchStartTriggerView searchStartView;
+        if (searchStartViews == null || searchStartViews.Length == 0)
+        {
+            var sstGo = new GameObject("SearchStartTriggerView");
+            sstGo.transform.position = new Vector3(0f, 0.5f, 7f);
+            sstGo.transform.localScale = new Vector3(13f, 2f, 1f);
+            var sstCol = sstGo.AddComponent<BoxCollider>();
+            sstCol.isTrigger = true;
+            searchStartView = sstGo.AddComponent<SearchStartTriggerView>();
+            log.AppendLine("笨・SearchStartTriggerView 繧�E�繝悶ず繧�E�繧�E�繝医�E�菴懈�E縺励∪縺励◁E�E井ｽ咲�E��E�: z=7・峨・);
+        }
+        else
+        {
+            searchStartView = searchStartViews[0];
+            log.AppendLine($"邁E�� SearchStartTriggerView 縺�E�譌｢縺�E� {searchStartViews.Length} 蛟句�E�伜惠縺励∪縺呻�E�医せ繧�E�繝�E・・峨・);
+        }
+
+        // 笏笏 Step 6: Player 縺�E� BuildModeMovementBlocker 繧堤�E��E�隱阪・霑ｽ蜉 笏笏
+        var playerGridMover = Object.FindFirstObjectByType<PlayerGridMover>();
+        BuildModeMovementBlocker buildModeBlocker = null;
+        if (playerGridMover != null)
+        {
+            buildModeBlocker = playerGridMover.GetComponent<BuildModeMovementBlocker>();
+            if (buildModeBlocker == null)
+            {
+                buildModeBlocker = playerGridMover.gameObject.AddComponent<BuildModeMovementBlocker>();
+                log.AppendLine("笨・Player 縺�E� BuildModeMovementBlocker 繧定ｿ�E�蜉縺励∪縺励◁E��・);
+            }
+            else
+            {
+                log.AppendLine("邁E�� BuildModeMovementBlocker 縺�E�譌｢縺�E�蟁E��惠縺励∪縺呻�E�医せ繧�E�繝�E・・峨・);
+            }
+        }
+        else
+        {
+            log.AppendLine("笞 PlayerGridMover 縺瑚ｦ九▽縺九ｊ縺�E�縺帙ｓ縺�E�縺励◁E���E�layer 繧�E�繝悶ず繧�E�繧�E�繝医�E�遒�E�隱阪�E�縺�E�縺上□縺輔＞縲・);
+        }
+
+        var dungeonController = Object.FindFirstObjectByType<DungeonController>();
+
+        // 笏笏 Step 7: SearchController 縺�E�蜿ら�E險�E�螳・笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        log.AppendLine("笏笏笏 SearchController 蜿ら�E險�E�螳・笏笏笏");
+        var serializedSc = new SerializedObject(searchController);
+
+        if (dungeonController != null)
+        {
+            AssignProperty(serializedSc, "dungeonController", dungeonController, log, "SearchController.dungeonController");
+        }
+        else
+        {
+            log.AppendLine("笞 DungeonController 縺瑚ｦ九▽縺九ｊ縺�E�縺帙ｓ縺�E�縺励◁E��・);
+        }
+
+        AssignProperty(serializedSc, "sceneTransitionHandlerObject", gameOverHandler, log,
+            "SearchController.sceneTransitionHandlerObject");
+
+        var roomObjectSpawner = Object.FindFirstObjectByType<RoomObjectSpawner>();
+        if (roomObjectSpawner != null)
+        {
+            var spawnProp = serializedSc.FindProperty("spawnHandlerObjects");
+            if (spawnProp != null && spawnProp.isArray)
+            {
+                spawnProp.arraySize = 1;
+                spawnProp.GetArrayElementAtIndex(0).objectReferenceValue = roomObjectSpawner;
+                log.AppendLine("笨・SearchController.spawnHandlerObjects[0] 竊�ERoomObjectSpawner");
+            }
+        }
+        else
+        {
+            log.AppendLine("笞 RoomObjectSpawner 縺瑚ｦ九▽縺九ｊ縺�E�縺帙ｓ縺�E�縺励◁E��・);
+        }
+
+        var triggersProp = serializedSc.FindProperty("searchStartTriggerViews");
+        if (triggersProp != null && triggersProp.isArray)
+        {
+            triggersProp.arraySize = 1;
+            triggersProp.GetArrayElementAtIndex(0).objectReferenceValue = searchStartView;
+            log.AppendLine("笨・SearchController.searchStartTriggerViews[0] 竊�ESearchStartTriggerView");
+        }
+
+        serializedSc.ApplyModifiedProperties();
+
+        // 笏笏 Step 8: SearchEndInteractableView 縺�E�蜿ら�E險�E�螳・笏笏笏笏笏笏笏笏笏笏笏笏笏
+        log.AppendLine("笏笏笏 SearchEndInteractableView 蜿ら�E險�E�螳・笏笏笏");
+        var serializedSev = new SerializedObject(searchEndView);
+        AssignProperty(serializedSev, "searchController", searchController, log,
+            "SearchEndInteractableView.searchController");
+        serializedSev.ApplyModifiedProperties();
+
+        // 笏笏 Step 9: SearchStartTriggerView 縺�E�蜿ら�E險�E�螳・笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        log.AppendLine("笏笏笏 SearchStartTriggerView 蜿ら�E險�E�螳・笏笏笏");
+        var serializedSsv = new SerializedObject(searchStartView);
+        AssignProperty(serializedSsv, "searchController", searchController, log,
+            "SearchStartTriggerView.searchController");
+        serializedSsv.ApplyModifiedProperties();
+
+        // 笏笏 Step 10: PlayerGridMover 縺�E� movementBlockerObjects 險�E�螳・笏笏
+        if (playerGridMover != null && buildModeBlocker != null)
+        {
+            log.AppendLine("笏笏笏 PlayerGridMover 蜿ら�E險�E�螳・笏笏笏");
+            var serializedPgm = new SerializedObject(playerGridMover);
+            SetBlockerIfAbsent(serializedPgm, "movementBlockerObjects", buildModeBlocker,
+                log, "PlayerGridMover.movementBlockerObjects");
+            serializedPgm.ApplyModifiedProperties();
+        }
+
+        // 笏笏 Step 11: PlayerInteract 縺�E� interactBlockerObjects 險�E�螳・笏笏笏
+        var playerInteract = Object.FindFirstObjectByType<PlayerInteract>();
+        if (playerInteract != null && buildModeBlocker != null)
+        {
+            log.AppendLine("笏笏笏 PlayerInteract 蜿ら�E險�E�螳・笏笏笏");
+            var serializedPI = new SerializedObject(playerInteract);
+            SetBlockerIfAbsent(serializedPI, "interactBlockerObjects", buildModeBlocker,
+                log, "PlayerInteract.interactBlockerObjects");
+            serializedPI.ApplyModifiedProperties();
+        }
+
+        // 笏笏 Step 12: RoomObjectSpawner 縺�E�蜿ら�E險�E�螳・笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        if (roomObjectSpawner != null)
+        {
+            log.AppendLine("笏笏笏 RoomObjectSpawner 蜿ら�E險�E�螳・笏笏笏");
+            var serializedSpawner = new SerializedObject(roomObjectSpawner);
+
+            if (dungeonController != null)
+            {
+                AssignProperty(serializedSpawner, "dungeonController", dungeonController, log,
+                    "RoomObjectSpawner.dungeonController");
+            }
+
+            if (System.IO.File.Exists(TreasureBoxPrefabPath))
+            {
+                var treasurePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(TreasureBoxPrefabPath);
+                if (treasurePrefab != null)
+                {
+                    AssignProperty(serializedSpawner, "treasureBoxPrefab", treasurePrefab, log,
+                        "RoomObjectSpawner.treasureBoxPrefab");
+                }
+            }
+            else
+            {
+                log.AppendLine("笞 螳晉ｮ�E�繝励Ξ繝上ヶ縺瑚ｦ九▽縺九ｊ縺�E�縺帙ｓ縲よ�E蜍輔〒繧�E�繧�E�繧�E�繝ｳ縺励※縺上□縺輔＞縲・);
+            }
+
+            serializedSpawner.ApplyModifiedProperties();
+        }
+
+        // 笏笏 Step 13: BuildModeToggleObject 縺�E� searchController 險�E�螳・笏笏
+        // 謗｢邏｢荳�E�縺�E�繝薙Ν繝峨Δ繝ｼ繝峨∈蜈�E�繧後�E縺・�E�縺・。uildModeToggleObject 縺�E� SearchController 繧定ｨ�E�螳壹☁E��九・
+        var buildModeToggleObject = Object.FindFirstObjectByType<BuildModeToggleObject>();
+        if (buildModeToggleObject != null)
+        {
+            log.AppendLine("笏笏笏 BuildModeToggleObject 蜿ら�E險�E�螳・笏笏笏");
+            var serializedBuildToggle = new SerializedObject(buildModeToggleObject);
+            AssignProperty(serializedBuildToggle, "searchController", searchController, log,
+                "BuildModeToggleObject.searchController");
+            serializedBuildToggle.ApplyModifiedProperties();
+        }
+        else
+        {
+            log.AppendLine("邁E�� BuildModeToggleObject 縺後す繝ｼ繝ｳ蜀・↓隕九▽縺九ｊ縺�E�縺帙ｓ縺�E�縺励◁E�E域�E蜍輔〒繧�E�繧�E�繧�E�繝ｳ縺励※縺上□縺輔＞�E峨・);
+        }
+
+        // 笏笏 繧�E�繝ｼ繝ｳ菫晏ｭ・笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        EditorSceneManager.SaveScene(gameScene);
+        AssetDatabase.Refresh();
+
+        var logText = log.ToString();
+        Debug.Log(logText);
+        EditorUtility.DisplayDialog("Info", "Operation completed", "OK");
+    }
+
+    // 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+    // 7. GameScene 繝�Eャ繧�E�繧�E�繝�E・繧呈�E蜍穂ｽ懈�E
+    // 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+
+    [MenuItem("Tools/Game Setup/07. GameScene 繝�Eャ繧�E�繧�E�繝�E・繧剁E��懈�E")]
+    public static void CreateGameSceneBackupMenu()
+    {
+        if (!System.IO.File.Exists(GameScenePath))
+        {
+            EditorUtility.DisplayDialog("Info", "Operation completed", "OK");
+            return;
+        }
+
+        var backupPath = CreateGameSceneBackup();
+        if (backupPath != null)
+        {
+            EditorUtility.DisplayDialog("螳御�E�・, $"繝�Eャ繧�E�繧�E�繝�E・繧剁E��懈�E縺励∪縺励◁E��・n{backupPath}", "OK");
+        }
+    }
+
+    // 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+    // 8. 譌｢蟁E��す繝ｼ繝ｳ縺�E� InputModule 繧・InputSystem 蟁E��蠢懊�E蟾�E�縺玲崛縺・
+    // 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+
+    [MenuItem("Tools/Game Setup/08. InputModule 繧・InputSystem 蟁E��蠢懊�E蟾�E�縺玲崛縺茨�E�域里蟁E��す繝ｼ繝ｳ菫�E�豁E��・・)]
+    public static void FixInputModuleForAllScenes()
+    {
+        var targetScenes = new[]
+        {
+            TitleScenePath,
+            GameOverScenePath,
+            GameClearScenePath,
+        };
+
+        var log = new System.Text.StringBuilder();
+        log.AppendLine("[GameSetupEditor] InputModule 蟾�E�縺玲崛縺磯幕蟋・);
+        log.AppendLine("笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏");
+
+        foreach (var scenePath in targetScenes)
+        {
+            if (!System.IO.File.Exists(scenePath))
+            {
+                log.AppendLine("Log entry");
+                continue;
+            }
+
+            var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
+            SceneManager.SetActiveScene(scene);
+
+            FixInputModuleInScene(scenePath, log);
+
+            EditorSceneManager.SaveScene(scene);
+            // 蜁E��送E�E�E�後�E繧�E�繝ｼ繝ｳ繧帝哩縺倥※繝｡繝｢繝ｪ繧定ｧ�E�謾�E�縺吶�E��E・ameScene縺�E�蟁E��雎｡螟悶↑縺�E�縺�E�螳牙�E縺�E�髢峨§繧峨�E�繧具�E�・
+            EditorSceneManager.CloseScene(scene, removeScene: true);
+        }
+
+        AssetDatabase.Refresh();
+        var logText = log.ToString();
+        Debug.Log(logText);
+        EditorUtility.DisplayDialog("Info", "Operation completed", "OK");
+    }
+
+    /// <summary>
+    /// 繧�E�繧�E�繝�EぁE��悶す繝ｼ繝ｳ蜀・・ StandaloneInputModule 繧・InputSystemUIInputModule 縺�E�蟾�E�縺玲崛縺医�E�縲・
+    /// 譌｢縺�E�InputSystemUIInputModule 縺悟ｭ伜惠縺吶�E�蝣�E�蜷医・繧�E�繧�E�繝�E・縺吶�E�縲・
+    /// </summary>
+    private static void FixInputModuleInScene(string sceneName, System.Text.StringBuilder log)
+    {
+        // 譌｢縺�E� InputSystemUIInputModule 縺悟ｭ伜惠縺吶�E�蝣�E�蜷医・繧�E�繧�E�繝�E・
+        var existingModule = Object.FindFirstObjectByType<InputSystemUIInputModule>();
+        if (existingModule != null)
+        {
+            log.AppendLine($"邁E�� {sceneName}: InputSystemUIInputModule 縺�E�譌｢縺�E�蟁E��惠縺励∪縺呻�E�医せ繧�E�繝�E・・峨・);
+            return;
+        }
+
+        var standaloneModule = Object.FindFirstObjectByType<StandaloneInputModule>();
+        if (standaloneModule == null)
+        {
+            log.AppendLine($"笞 {sceneName}: StandaloneInputModule 縺瑚ｦ九▽縺九ｊ縺�E�縺帙ｓ縺�E�縺励◁E��・);
+            return;
+        }
+
+        // StandaloneInputModule 縺悟ｭ伜惠縺吶�E�EGameObject 縺�E� InputSystemUIInputModule 繧定ｿ�E�蜉縺励※蜑企勁縺吶�E�E
+        var eventSystemGo = standaloneModule.gameObject;
+        Object.DestroyImmediate(standaloneModule);
+        eventSystemGo.AddComponent<InputSystemUIInputModule>();
+        log.AppendLine($"笨・{sceneName}: StandaloneInputModule 竊�EInputSystemUIInputModule 縺�E�蟾�E�縺玲崛縺医∪縺励◁E��・);
+    }
+
+    // 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+    // 9. 譌･譛ｬ隱槭ヵ繧�E�繝ｳ繝医そ繝�Eヨ繧�E�繝�E・・・ynamic TMP FontAsset 菴懈�E・・
+    // 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+
+    [MenuItem("Tools/Game Setup/09. 譌･譛ｬ隱槭ヵ繧�E�繝ｳ繝医そ繝�Eヨ繧�E�繝�E・・・ynamic TMP FontAsset 菴懈�E・・)]
+    public static void SetupJapaneseFont()
+    {
+        // Fonts 繝輔か繝ｫ繝繧堤�E��E�隱阪・菴懈�E
+        if (!AssetDatabase.IsValidFolder("Assets/Game/Fonts"))
+        {
+            AssetDatabase.CreateFolder("Assets/Game", "Fonts");
+        }
+
+        // Windows 貂ｸ繧�E�繧�E�繝�Eけ繧偵さ繝斐・・亥�E�伜惠縺吶�E�蝣�E�蜷医・縺�E�・・
+        if (!System.IO.File.Exists(JapaneseFontDestPath))
+        {
+            if (System.IO.File.Exists(JapaneseFontSourcePath))
+            {
+                System.IO.File.Copy(JapaneseFontSourcePath, JapaneseFontDestPath);
+                AssetDatabase.Refresh();
+                Debug.Log($"[GameSetupEditor] 貂ｸ繧�E�繧�E�繝�Eけ繧偵さ繝斐・縺励∪縺励◁E {JapaneseFontDestPath}");
+            }
+            else
+            {
+                EditorUtility.DisplayDialog("Info", "Operation completed", "OK")}\n" +
+                    "縺�E�繧�E�繝斐・縺励※縺九ｉ縲√！E���E�繝｡繝九Η繝ｼ繧貞�E螳溯�E�後＠縺�E�縺上□縺輔＞縲・n\n" +
+                    "謗ｨ螂ｨ繝輔か繝ｳ繝�E 貂ｸ繧�E�繧�E�繝�Eけ繝ｻNoto Sans JP",
+                    "OK");
+                return;
+            }
+        }
+
+        // 縺吶〒縺�E� TMP FontAsset 縺悟ｭ伜惠縺吶�E�蝣�E�蜷医・繧�E�繧�E�繝�E・
+        if (System.IO.File.Exists(JapaneseFontAssetPath))
+        {
+            EditorUtility.DisplayDialog("Info", "Operation completed", "OK");
+            return;
+        }
+
+        // Font 繧偵Ο繝ｼ繝峨�E�縺�E� Dynamic TMP FontAsset 繧剁E��懈�E
+        var sourceFont = AssetDatabase.LoadAssetAtPath<Font>(JapaneseFontDestPath);
+        if (sourceFont == null)
+        {
+            EditorUtility.DisplayDialog("Info", "Operation completed", "OK");
+            return;
+        }
+
+        // Dynamic 繝｢繝ｼ繝峨、ETMP FontAsset 繧剁E��懈�E・井ｽ�E�逕ｨ縺励◁E���E�繝ｪ繝輔′蜍�E噪縺�E�霑ｽ蜉縺輔ｌ繧具�E�・
+        // 繧�E�繝ｳ繝励Ν縺�E�繧�E�繝ｼ繝�E・繝ｭ繝ｼ繝峨〒菴懈�E縺励�E�ynamic 險�E�螳壹・繝励Ο繝代ユ繧�E�縺�E�蠕御�E�倥�E�縺吶�E�E
+        var fontAsset = TMP_FontAsset.CreateFontAsset(sourceFont);
+        if (fontAsset == null)
+        {
+            EditorUtility.DisplayDialog("Info", "Operation completed", "OK");
+            return;
+        }
+
+        // Dynamic 繝輔か繝ｳ繝医→縺励※險�E�螳夲�E�井ｽ�E�逕ｨ縺吶�E�繧�E�繝ｪ繝輔�E縺�E�繧貞虚逧・↓霑�E�蜉縺怜ｮ�E�驥上ｒ遽邏�E☁E��具�E�・
+        fontAsset.atlasPopulationMode = AtlasPopulationMode.Dynamic;
+
+        fontAsset.name = System.IO.Path.GetFileNameWithoutExtension(JapaneseFontAssetPath);
+        AssetDatabase.CreateAsset(fontAsset, JapaneseFontAssetPath);
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+
+        EditorUtility.DisplayDialog("Info", "Operation completed", "OK");
+
+        Debug.Log($"[GameSetupEditor] 譌･譛ｬ隱・Dynamic TMP FontAsset 繧剁E��懈�E縺励∪縺励◁E {JapaneseFontAssetPath}");
+    }
+
+    // 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+    // 10. LocalizationData 繧�E�繧�E�繝�Eヨ菴懈�E
+    // 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+
+    [MenuItem("Tools/Game Setup/10. LocalizationData 繧�E�繧�E�繝�Eヨ菴懈�E")]
+    public static void CreateLocalizationDataAsset()
+    {
+        if (System.IO.File.Exists(LocalizationDataPath))
+        {
+            if (!EditorUtility.DisplayDialog(
+                    "遒ｺ隱・,
+                    $"{LocalizationDataPath} 縺�E�譌｢縺�E�蟁E��惠縺励∪縺吶めE��頑嶌縺阪�E�縺�E�縺吶°・・,
+                    "荳頑嶌縺・, "繧�E�繝｣繝ｳ繧�E�繝ｫ"))
+            {
+                return;
+            }
+
+            AssetDatabase.DeleteAsset(LocalizationDataPath);
+        }
+
+        var data = ScriptableObject.CreateInstance<LocalizationData>();
+        AssetDatabase.CreateAsset(data, LocalizationDataPath);
+
+        // 繝�Eヵ繧�E�繝ｫ繝医お繝ｳ繝医Μ繧・ScriptableObject 縺�E�險�E�螳壹☁E��・
+        var serializedData = new SerializedObject(data);
+        var entriesProp    = serializedData.FindProperty("entries");
+        if (entriesProp != null && entriesProp.isArray)
+        {
+            var defaultEntries = new (string key, string ja, string en)[]
+            {
+                (LocalizationKey.TitleLabel,       "MapTest",              "MapTest"),
+                (LocalizationKey.GameStart,        "繧�E�繝ｼ繝繧�E�繧�E�繝ｼ繝�E,        "Game Start"),
+                (LocalizationKey.LanguageJapanese, "譌･譛ｬ隱・,               "譌･譛ｬ隱・),
+                (LocalizationKey.LanguageEnglish,  "English",              "English"),
+                (LocalizationKey.ReturnToTitle,    "繧�E�繧�E�繝医Ν縺�E�謌ｻ繧・,        "Return to Title"),
+                (LocalizationKey.GameOver,         "GAME OVER",            "GAME OVER"),
+                (LocalizationKey.GameClear,        "GAME CLEAR",           "GAME CLEAR"),
+                (LocalizationKey.FinalInventory,   "縲先怙邨めE�E謖�E■迚ｩ縲・,       "縲色inal Inventory縲・),
+                (LocalizationKey.SearchEnd,        "謗｢邏｢邨めE��・,              "SearchEnd"),
+                (LocalizationKey.Build,            "繝薙Ν繝�E,               "Build"),
+            };
+
+            entriesProp.arraySize = defaultEntries.Length;
+            for (var i = 0; i < defaultEntries.Length; i++)
+            {
+                var element = entriesProp.GetArrayElementAtIndex(i);
+                element.FindPropertyRelative("key").stringValue      = defaultEntries[i].key;
+                element.FindPropertyRelative("japanese").stringValue = defaultEntries[i].ja;
+                element.FindPropertyRelative("english").stringValue  = defaultEntries[i].en;
+            }
+
+            serializedData.ApplyModifiedProperties();
+        }
+
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+
+        // Inspector 縺�E�繧�E�繧�E�繝�Eヨ繧帝�E謚樒�E諷九�E縺吶�E�E
+        Selection.activeObject = data;
+
+        Debug.Log($"[GameSetupEditor] LocalizationData 繧剁E��懈�E縺励∪縺励◁E {LocalizationDataPath}");
+        EditorUtility.DisplayDialog(
+            "LocalizationData 菴懈�E螳御�E�・,
+            $"菴懈�E縺励∪縺励◁E {LocalizationDataPath}\n\n" +
+            "Inspector 縺�E�繝�Eく繧�E�繝医�E�遒�E�隱阪・邱�E�髮・�E�縺�E�縺上□縺輔＞縲・n" +
+            "LanguageManager 繧�E�繝ｳ繝昴・繝阪Φ繝医・ 'Localization Data' 縺�E�繧�E�繧�E�繧�E�繝ｳ縺励※縺上□縺輔＞縲・,
+            "OK");
+    }
+
+    // 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+    // 11. TitleScene 縺�E�險隱槫・繧頑崛縺・UI 閾�E�蜍�E�E��E�蜉
+    // 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+
+    [MenuItem("Tools/Game Setup/11. TitleScene 縺�E�險隱槫・繧頑崛縺・UI 霑ｽ蜉")]
+    public static void AddLanguageUIToTitleScene()
+    {
+        if (!System.IO.File.Exists(TitleScenePath))
+        {
+            EditorUtility.DisplayDialog("Info", "Operation completed", "OK");
+            return;
+        }
+
+        // LocalizationData 縺�E�蟁E��惠遒ｺ隱・
+        var localizationData = AssetDatabase.LoadAssetAtPath<LocalizationData>(LocalizationDataPath);
+        if (localizationData == null)
+        {
+            EditorUtility.DisplayDialog("Info", "Operation completed", "OK");
+            return;
+        }
+
+        var scene = EditorSceneManager.OpenScene(TitleScenePath, OpenSceneMode.Additive);
+        SceneManager.SetActiveScene(scene);
+
+        var log = new System.Text.StringBuilder();
+        log.AppendLine("[GameSetupEditor] TitleScene 險隱朸I霑ｽ蜉髢句�E�・);
+
+        // 笏笏 Step 1: LanguageManager 繧堤�E��E�隱阪・菴懈�E 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        var languageManager = Object.FindFirstObjectByType<LanguageManager>();
+        if (languageManager == null)
+        {
+            var lmGo = new GameObject("LanguageManager");
+            languageManager = lmGo.AddComponent<LanguageManager>();
+            log.AppendLine("笨・LanguageManager 繧�E�繝悶ず繧�E�繧�E�繝医�E�菴懈�E縺励∪縺励◁E��・);
+        }
+        else
+        {
+            log.AppendLine("邁E�� LanguageManager 縺�E�譌｢縺�E�蟁E��惠縺励∪縺呻�E�医せ繧�E�繝�E・・峨・);
+        }
+
+        // LocalizationData 繧偵ぁE���E�繧�E�繝ｳ
+        var serializedLm = new SerializedObject(languageManager);
+        AssignProperty(serializedLm, "localizationData", localizationData, log, "LanguageManager.localizationData");
+        serializedLm.ApplyModifiedProperties();
+
+        // 笏笏 Step 2: Canvas 繧貞叙蠕�E笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        var canvas = Object.FindFirstObjectByType<Canvas>();
+        if (canvas == null)
+        {
+            log.AppendLine("笞 Canvas 縺瑚ｦ九▽縺九ｊ縺�E�縺帙ｓ縲�E�itleScene 繧貞�E菴懈�E縺励※縺上□縺輔＞縲・);
+            EditorUtility.DisplayDialog("Info", "Operation completed", "OK");
+            EditorSceneManager.CloseScene(scene, false);
+            return;
+        }
+
+        // 笏笏 Step 3: TitleLanguageView 繧堤�E��E�隱阪・菴懈�E 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+        var titleLanguageView = Object.FindFirstObjectByType<TitleLanguageView>();
+        if (titleLanguageView == null)
+        {
+            // LanguageView 逕ｨ縺�E�繝代ロ繝ｫ繧剁E��懈�E
+            var languageViewGo = new GameObject("LanguageView");
+            languageViewGo.transform.SetParent(canvas.transform, false);
+            var rectTransform = languageViewGo.AddComponent<RectTransform>();
+            rectTransform.anchorMin = new Vector2(0.5f, 0.1f);
+            rectTransform.anchorMax = new Vector2(0.5f, 0.1f);
+            rectTransform.sizeDelta = new Vector2(400f, 60f);
+            rectTransform.anchoredPosition = Vector2.zero;
+
+            // 譌･譛ｬ隱槭・繧�E�繝ｳ
+            var japaneseButtonGo = CreateUIChild(languageViewGo, "JapaneseButton");
+            var japaneseRect = japaneseButtonGo.GetComponent<RectTransform>();
+            japaneseRect.anchorMin = new Vector2(0f, 0.5f);
+            japaneseRect.anchorMax = new Vector2(0f, 0.5f);
+            japaneseRect.sizeDelta = new Vector2(180f, 50f);
+            japaneseRect.anchoredPosition = new Vector2(90f, 0f);
+            var japaneseImage = japaneseButtonGo.AddComponent<Image>();
+            japaneseImage.color = new Color(0.4f, 0.4f, 0.4f);
+            var japaneseButton = japaneseButtonGo.AddComponent<Button>();
+            japaneseButton.targetGraphic = japaneseImage;
+
+            var japaneseTextGo = CreateUIChild(japaneseButtonGo, "Text");
+            SetAnchorFill(japaneseTextGo);
+            var japaneseText = japaneseTextGo.AddComponent<TextMeshProUGUI>();
+            japaneseText.text = "譌･譛ｬ隱・;
+            japaneseText.fontSize = 28;
+            japaneseText.alignment = TextAlignmentOptions.Center;
+            japaneseText.color = Color.white;
+
+            // 闍ｱ隱槭・繧�E�繝ｳ
+            var englishButtonGo = CreateUIChild(languageViewGo, "EnglishButton");
+            var englishRect = englishButtonGo.GetComponent<RectTransform>();
+            englishRect.anchorMin = new Vector2(1f, 0.5f);
+            englishRect.anchorMax = new Vector2(1f, 0.5f);
+            englishRect.sizeDelta = new Vector2(180f, 50f);
+            englishRect.anchoredPosition = new Vector2(-90f, 0f);
+            var englishImage = englishButtonGo.AddComponent<Image>();
+            englishImage.color = new Color(0.4f, 0.4f, 0.4f);
+            var englishButton = englishButtonGo.AddComponent<Button>();
+            englishButton.targetGraphic = englishImage;
+
+            var englishTextGo = CreateUIChild(englishButtonGo, "Text");
+            SetAnchorFill(englishTextGo);
+            var englishText = englishTextGo.AddComponent<TextMeshProUGUI>();
+            englishText.text = "English";
+            englishText.fontSize = 28;
+            englishText.alignment = TextAlignmentOptions.Center;
+            englishText.color = Color.white;
+
+            // TitleLanguageView 繧偵ぁE���E�繝�Eメ縺励※蜿ら�E險�E�螳・
+            titleLanguageView = languageViewGo.AddComponent<TitleLanguageView>();
+            var serializedView = new SerializedObject(titleLanguageView);
+            AssignProperty(serializedView, "japaneseButton", japaneseButton, log, "TitleLanguageView.japaneseButton");
+            AssignProperty(serializedView, "englishButton", englishButton, log, "TitleLanguageView.englishButton");
+            serializedView.ApplyModifiedProperties();
+
+            log.AppendLine("笨・TitleLanguageView 縺�E�險隱槫・繧頑崛縺医・繧�E�繝ｳ繧剁E��懈�E縺励∪縺励◁E��・);
+        }
+        else
+        {
+            log.AppendLine("邁E�� TitleLanguageView 縺�E�譌｢縺�E�蟁E��惠縺励∪縺呻�E�医せ繧�E�繝�E・・峨・);
+        }
+
+        EditorSceneManager.SaveScene(scene);
+        EditorSceneManager.CloseScene(scene, false);
+        AssetDatabase.Refresh();
+
+        var logText = log.ToString();
+        Debug.Log(logText);
+        EditorUtility.DisplayDialog("TitleScene 險隱朸I霑ｽ蜉螳御�E�・, logText, "OK");
+    }
+
+    // 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+    // 12. GameScene 縺�E� LanguageManager 霑ｽ蜉
+    // 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+
+    [MenuItem("Tools/Game Setup/12. GameScene 縺�E� LanguageManager 霑ｽ蜉")]
+    public static void AddLanguageManagerToGameScene()
+    {
+        if (!System.IO.File.Exists(GameScenePath))
+        {
+            EditorUtility.DisplayDialog("Info", "Operation completed", "OK");
+            return;
+        }
+
+        // LocalizationData 縺�E�蟁E��惠遒ｺ隱・
+        var localizationData = AssetDatabase.LoadAssetAtPath<LocalizationData>(LocalizationDataPath);
+        if (localizationData == null)
+        {
+            EditorUtility.DisplayDialog("Info", "Operation completed", "OK");
+            return;
+        }
+
+        var activeScene = SceneManager.GetActiveScene();
+        var gameScene = activeScene.path == GameScenePath
+            ? activeScene
+            : EditorSceneManager.OpenScene(GameScenePath, OpenSceneMode.Additive);
+
+        if (activeScene.path != GameScenePath)
+        {
+            SceneManager.SetActiveScene(gameScene);
+        }
+
+        var log = new System.Text.StringBuilder();
+        log.AppendLine("[GameSetupEditor] GameScene LanguageManager 霑ｽ蜉髢句�E�・);
+
+        // LanguageManager 繧堤�E��E�隱阪・菴懈�E
+        var languageManager = Object.FindFirstObjectByType<LanguageManager>();
+        if (languageManager == null)
+        {
+            var lmGo = new GameObject("LanguageManager");
+            languageManager = lmGo.AddComponent<LanguageManager>();
+            log.AppendLine("笨・LanguageManager 繧�E�繝悶ず繧�E�繧�E�繝医�E�菴懈�E縺励∪縺励◁E��・);
+        }
+        else
+        {
+            log.AppendLine("邁E�� LanguageManager 縺�E�譌｢縺�E�蟁E��惠縺励∪縺呻�E�医せ繧�E�繝�E・・峨・);
+        }
+
+        // LocalizationData 繧偵ぁE���E�繧�E�繝ｳ
+        var serializedLm = new SerializedObject(languageManager);
+        AssignProperty(serializedLm, "localizationData", localizationData, log, "LanguageManager.localizationData");
+        serializedLm.ApplyModifiedProperties();
+
+        EditorSceneManager.SaveScene(gameScene);
+        AssetDatabase.Refresh();
+
+        var logText = log.ToString();
+        Debug.Log(logText);
+        EditorUtility.DisplayDialog("GameScene LanguageManager 霑ｽ蜉螳御�E�・, logText, "OK");
+    }
+
+    // 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+    // 螳晉ｮ�E�繝励Ξ繝上ヶ菴懈�E・亥・驛ｨ蜈ｱ騾壼・送E�E�E�・
+    // 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+
+    /// <summary>螳晉ｮ�E�繝励Ξ繝上ヶ繧剁E��懈�E縺励※繝ｭ繧�E�縺�E�險倬鹸縺吶�E��E医Γ繝九Η繝ｼ5 縺�E� Step 1 縺�E�蜈ｱ騾壼・送E�E�E�峨・/summary>
+    private static void CreateTreasureBoxPrefabInternal(System.Text.StringBuilder log)
+    {
+        const string prefabFolder = "Assets/Game/Room/Prefabs";
+        if (!AssetDatabase.IsValidFolder(prefabFolder))
+        {
+            AssetDatabase.CreateFolder("Assets/Game/Room", "Prefabs");
+        }
+
+        var treasureBoxGo = new GameObject("TreasureBox");
+        var meshFilter = treasureBoxGo.AddComponent<MeshFilter>();
+        meshFilter.sharedMesh = Resources.GetBuiltinResource<Mesh>("Cube.fbx");
+        var meshRenderer = treasureBoxGo.AddComponent<MeshRenderer>();
+        var redMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+        redMaterial.color = new Color(0.8f, 0.1f, 0.1f);
+        meshRenderer.sharedMaterial = redMaterial;
+        treasureBoxGo.transform.localScale = new Vector3(0.8f, 0.6f, 0.8f);
+        treasureBoxGo.AddComponent<BoxCollider>();
+        treasureBoxGo.AddComponent<TreasureBoxController>();
+
+        var prefab = PrefabUtility.SaveAsPrefabAsset(treasureBoxGo, TreasureBoxPrefabPath);
+        Object.DestroyImmediate(treasureBoxGo);
+
+        if (prefab != null)
+        {
+            log?.AppendLine($"笨・螳晉ｮ�E�繝励Ξ繝上ヶ繧剁E��懈�E縺励∪縺励◁E {TreasureBoxPrefabPath}");
+        }
+        else
+        {
+            log?.AppendLine($"笶・螳晉ｮ�E�繝励Ξ繝上ヶ縺�E�菴懈�E縺�E�螟ｱ謨励�E�縺�E�縺励◁E {TreasureBoxPrefabPath}");
+        }
+    }
+
+    // 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+    // Private 繝倥Ν繝代・
+    // 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+
+    /// <summary>
+    /// SerializedObject 縺�E�繝励Ο繝代ユ繧�E�縺�E�繧�E�繝悶ず繧�E�繧�E�繝亥盾辣�E�繧偵ぁE���E�繧�E�繝ｳ縺吶�E�繝倥Ν繝代・縲・
+    /// </summary>
+    private static void AssignProperty(SerializedObject serializedObj, string propertyName,
+        Object value, System.Text.StringBuilder log, string displayName)
+    {
+        var prop = serializedObj.FindProperty(propertyName);
+        if (prop != null)
+        {
+            prop.objectReferenceValue = value;
+            log.AppendLine($"笨・{displayName} 繧偵ぁE���E�繧�E�繝ｳ縺励∪縺励◁E��・);
+        }
+        else
+        {
+            log.AppendLine($"笞 {displayName} 繝輔ぅ繝ｼ繝ｫ繝峨′隕九▽縺九ｊ縺�E�縺帙ｓ�E域�E蜍輔〒繧�E�繧�E�繧�E�繝ｳ縺励※縺上□縺輔＞�E峨・);
+        }
+    }
+
+    /// <summary>
+    /// 驟榊�E繝励Ο繝代ユ繧�E�縺�E�謖�E�E�壹が繝悶ず繧�E�繧�E�繝医′蜷�E�縺�E�繧後※縺・↑縺代�E�縺�E�霑ｽ蜉縺吶�E�繝倥Ν繝代・縲・
+    /// </summary>
+    private static void SetBlockerIfAbsent(SerializedObject serializedObj, string propertyName,
+        Object value, System.Text.StringBuilder log, string displayName)
+    {
+        var prop = serializedObj.FindProperty(propertyName);
+        if (prop == null || !prop.isArray)
+        {
+            log.AppendLine($"笞 {displayName} 繝輔ぅ繝ｼ繝ｫ繝峨′隕九▽縺九ｊ縺�E�縺帙ｓ縲・);
+            return;
+        }
+
+        for (var i = 0; i < prop.arraySize; i++)
+        {
+            if (prop.GetArrayElementAtIndex(i).objectReferenceValue == value)
+            {
+                log.AppendLine($"邁E�� {displayName} 縺�E�險�E�螳壽�E�医∩縺�E�縺呻�E�医せ繧�E�繝�E・・峨・);
+                return;
+            }
+        }
+
+        prop.arraySize = 1;
+        prop.GetArrayElementAtIndex(0).objectReferenceValue = value;
+        log.AppendLine($"笨・{displayName}[0] 竊�E{value.GetType().Name}");
+    }
+
+    /// <summary>
+    /// GameScene 繧偵ち繧�E�繝繧�E�繧�E�繝ｳ繝嶺�E�倥″縺�E� Backups 繝輔か繝ｫ繝縺�E�繧�E�繝斐・縺吶�E�縲・
+    /// 繧�E�繝�Eヨ繧�E�繝�E・蜑阪・迥�E�諷九ｒ菫晏ｭ倥�E�縺�E�縺翫�E�縺薙�E縺�E�縲∬�E��E�縺�E�縺溯�E��E�螳壼�E�画峩繧貞�E縺�E�謌ｻ縺帙ｋ縲・
+    /// </summary>
+    /// <returns>菴懈�E縺励◁E���Eャ繧�E�繧�E�繝�E・縺�E�繧�E�繧�E�繝�Eヨ繝代せ縲めE���E�謨励�E�縺溷�E��E�蜷医・ null縲・/returns>
+    private static string CreateGameSceneBackup()
+    {
+        if (!System.IO.File.Exists(GameScenePath))
+        {
+            Debug.LogWarning($"[GameSetupEditor] 繝�Eャ繧�E�繧�E�繝�E・蜈�E・繧�E�繝ｼ繝ｳ縺瑚ｦ九▽縺九ｊ縺�E�縺帙ａE {GameScenePath}");
+            return null;
+        }
+
+        // Backups 繝輔か繝ｫ繝繧堤�E��E�隱阪・菴懈�E
+        if (!AssetDatabase.IsValidFolder(BackupSceneFolder))
+        {
+            AssetDatabase.CreateFolder("Assets/Scenes", "Backups");
+            Debug.Log($"[GameSetupEditor] 繝�Eャ繧�E�繧�E�繝�E・繝輔か繝ｫ繝繧剁E��懈�E縺励∪縺励◁E {BackupSceneFolder}");
+        }
+
+        var timestamp = System.DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        var backupPath = $"{BackupSceneFolder}/GameScene_Backup_{timestamp}.unity";
+
+        var result = AssetDatabase.CopyAsset(GameScenePath, backupPath);
+        if (result)
+        {
+            AssetDatabase.Refresh();
+            Debug.Log($"[GameSetupEditor] 繝�Eャ繧�E�繧�E�繝�E・繧剁E��懈�E縺励∪縺励◁E {backupPath}");
+            return backupPath;
+        }
+        else
+        {
+            Debug.LogWarning($"[GameSetupEditor] 繝�Eャ繧�E�繧�E�繝�E・縺�E�菴懈�E縺�E�螟ｱ謨励�E�縺�E�縺励◁E {backupPath}");
+            return null;
+        }
+    }
+
+    /// <summary>UI 蟁E�EGameObject 繧剁E��懈�E縺励※隕ｪ縺�E�繧�E�繧�E�繝�Eメ縲・/summary>
+    private static GameObject CreateUIChild(GameObject parent, string name)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(parent.transform, false);
+        go.AddComponent<RectTransform>();
+        return go;
+    }
+
+    /// <summary>RectTransform 縺�E�繧�E�繝ｳ繧�E�繝ｼ繧剁E���E�螟ｮ蝗ｺ螳壹・繧�E�繧�E�繧�E�繧呈欠螳壹☁E��九・/summary>
+    private static void SetAnchor(GameObject go, Vector2 anchorCenter, Vector2 sizeDelta)
+    {
+        var rect = go.GetComponent<RectTransform>();
+        rect.anchorMin = anchorCenter;
+        rect.anchorMax = anchorCenter;
+        rect.anchoredPosition = Vector2.zero;
+        rect.sizeDelta = sizeDelta;
+    }
+
+    /// <summary>RectTransform 繧定ｦ�E�蜈ｨ菴薙�E蠑輔″莨�E�縺�E�縺呻�E�医・繧�E�繝ｳ蜀・ユ繧�E�繧�E�繝育畑�E峨・/summary>
+    private static void SetAnchorFill(GameObject go)
+    {
+        var rect = go.GetComponent<RectTransform>();
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+    }
+
+    // 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+    // [ALL] 荳願ｨ倥�E�縺吶∋縺�E�荳逋ｺ螳溯�E�・
+    // 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
+
+    [MenuItem("Tools/Game Setup/[ALL] 荳願ｨ倥�E�縺吶∋縺�E�螳溯�E�・)]
+    public static void RunAll()
+    {
+        if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+        {
+            return;
+        }
+
+        if (!System.IO.File.Exists(GameOverScenePath))
+        {
+            CreateGameOverScene();
+        }
+        else
+        {
+            Debug.Log("[GameSetupEditor] GameOverScene 縺�E�譌｢縺�E�蟁E��惠縺励∪縺呻�E�医せ繧�E�繝�E・・峨・);
+        }
+
+        if (!System.IO.File.Exists(TitleScenePath))
+        {
+            CreateTitleScene();
+        }
+        else
+        {
+            Debug.Log("[GameSetupEditor] TitleScene 縺�E�譌｢縺�E�蟁E��惠縺励∪縺呻�E�医せ繧�E�繝�E・・峨・);
+        }
+
+        if (!System.IO.File.Exists(GameClearScenePath))
+        {
+            CreateGameClearScene();
+        }
+        else
+        {
+            Debug.Log("[GameSetupEditor] GameClearScene 縺�E�譌｢縺�E�蟁E��惠縺励∪縺呻�E�医せ繧�E�繝�E・・峨・);
+        }
+
+        RegisterScenesInBuildSettings();
+
+        // InputModule 繧・InputSystem 蟁E��蠢懊�E蟾�E�縺玲崛縺医�E��E域里蟁E��す繝ｼ繝ｳ繧めE��繧・・
+        FixInputModuleForAllScenes();
+
+        // 譌･譛ｬ隱槭ヵ繧�E�繝ｳ繝医そ繝�Eヨ繧�E�繝�E・・医∪縺�E�菴懈�E縺輔ｌ縺�E�縺・↑縺・�E��E�蜷医・縺�E�・・
+        if (!System.IO.File.Exists(JapaneseFontAssetPath))
+        {
+            SetupJapaneseFont();
+        }
+        else
+        {
+            Debug.Log("[GameSetupEditor] 譌･譛ｬ隱槭ヵ繧�E�繝ｳ繝医・譌｢縺�E�蟁E��惠縺励∪縺呻�E�医せ繧�E�繝�E・・峨・);
+        }
+
+        // LocalizationData 菴懈�E・医∪縺�E�菴懈�E縺輔ｌ縺�E�縺・↑縺・�E��E�蜷医・縺�E�・・
+        if (!System.IO.File.Exists(LocalizationDataPath))
+        {
+            CreateLocalizationDataAsset();
+        }
+        else
+        {
+            Debug.Log("[GameSetupEditor] LocalizationData 縺�E�譌｢縺�E�蟁E��惠縺励∪縺呻�E�医せ繧�E�繝�E・・峨・);
+        }
+
+        // TitleScene 縺�E�險隱朸I霑ｽ蜉
+        AddLanguageUIToTitleScene();
+
+        // GameScene 縺�E� LanguageManager 霑ｽ蜉
+        AddLanguageManagerToGameScene();
+
+        // 螳晉ｮ�E�繝励Ξ繝上ヶ縺�E� SetupGameSceneInspector 蜀・・ Step 1 縺�E�閾�E�蜍穂ｽ懈�E縺輔ｌ繧九◆繧∝句挨蜻�E�縺�E�蜁E��縺嶺�E�崎ｦ・
+        SetupGameSceneInspector();
+    }
+
+}

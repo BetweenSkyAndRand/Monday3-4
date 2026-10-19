@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e83497f4e426cf442b537c276e202c1e, type: 3}
+  m_Name: InteractTextSettings
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Interaction.InteractTextSettings
+  storageOpenText: Open Storage
+  storageCloseText: Close Storage
+  treasureBoxWeaponFormat: Open Chest ({0})
+  treasureBoxWeaponGeneric: Open Chest (Weapon)
+  treasureBoxGeneric: Open Chest
+  treasureBoxCloseText: Close Chest
+  weaponPickupFormat: Pick Up {0}
+  buildModeToggleText: "\u90E8\u5C4B\u3092\u62E1\u5F35\u3059\u308B"
+  buildRoomCountFormat: "\u90E8\u5C4B\u6570 {0} / {1}"
+  buildRoomLimitText: "\u90E8\u5C4B\u6570\u304C\u4E0A\u9650\u3067\u3059\n\uFF08Esc\u3067\u30AD\u30E3\u30F3\u30BB\u30EB\uFF09"
+  buildPlaceableText: "\u914D\u7F6E\u3067\u304D\u307E\u3059\uFF08\u30AF\u30EA\u30C3\u30AF\u3067\u78BA\u5B9A\uFF09"
+  buildOverlappedText: "\u307B\u304B\u306E\u90E8\u5C4B\u3068\u91CD\u306A\u3063\u3066\u3044\u307E\u3059"
+  buildNoNeighborText: "\u96A3\u63A5\u3059\u308B\u90E8\u5C4B\u304C\u5FC5\u8981\u3067\u3059"
+  searchEndText: End Exploration
+  searchEndConfirmMessage: "\u63A2\u7D22\u3092\u7D42\u4E86\u3057\u307E\u3059\u304B\uFF1F\n\u62E1\u5F35\u3057\u305F\u90E8\u5C4B\u306F\u5D29\u58CA\u3057\u307E\u3059\u3002"
+  searchEndConfirmYesText: "\u7D42\u4E86\u3059\u308B"
+  searchEndConfirmNoText: "\u623B\u308B"

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 7762c3faa493d43878373cb9f4265bba
+PackageManifestImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 302500
+  packageName: Min/max Range Attribute
+  packageVersion: 1.0.3
+  assetPath: Assets/Lazy Squirrel Labs/MinMaxRangeAttribute/package.json
+  uploadId: 710576

@@ -1,0 +1,287 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HitBox Editor — 操作説明</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Segoe UI","Hiragino Sans","Yu Gothic UI",sans-serif; font-size:14px; line-height:1.7; background:#1e1e1e; color:#d4d4d4; }
+    .wrapper { max-width:900px; margin:0 auto; padding:40px 24px 80px; }
+    header { border-bottom:2px solid #444; padding-bottom:20px; margin-bottom:36px; }
+    header h1 { font-size:26px; font-weight:700; color:#e8e8e8; }
+    .badge { display:inline-block; margin-top:6px; padding:2px 10px; background:#2d4a7a; border-radius:4px; font-size:12px; color:#9ec8ff; }
+    header p { margin-top:10px; color:#a0a0a0; }
+    section { margin-bottom:48px; }
+    h2 { font-size:18px; font-weight:700; color:#c8a040; border-left:4px solid #c8a040; padding-left:10px; margin-bottom:16px; }
+    h3 { font-size:14px; font-weight:700; color:#9ec8ff; margin:20px 0 8px; }
+    p { margin-bottom:10px; }
+    .layout-diagram { display:grid; grid-template-columns:170px 1fr; gap:4px; margin:16px 0; font-size:12px; }
+    .panel { border:1px solid #555; border-radius:4px; padding:10px 14px; }
+    .panel.side { background:#202530; }
+    .panel.grid { background:#1e261e; }
+    .panel.file { grid-column:1/3; background:#282018; }
+    .panel-label { font-weight:700; color:#e0e0e0; margin-bottom:6px; font-size:13px; }
+    .panel-item { color:#999; font-size:11px; line-height:1.9; }
+    .panel-item span { color:#ce9178; }
+    .grid-wrap { margin:16px 0; }
+    .grid-demo { display:inline-grid; grid-template-columns:repeat(9,34px); grid-template-rows:repeat(9,34px); gap:2px; }
+    .cell { display:flex; align-items:center; justify-content:center; font-size:9px; border-radius:2px; background:#383838; color:rgba(255,255,255,.3); }
+    .cell.cc { background:#3d3d44; border:1px solid rgba(200,160,20,.45); color:rgba(255,255,255,.45); }
+    .cell.ex { background:#26c226; color:#000; font-weight:700; }
+    .pi-row { display:inline-grid; grid-template-columns:repeat(9,34px); gap:2px; margin-top:2px; }
+    .pi { width:34px; height:34px; }
+    .pi.on { display:flex; align-items:center; justify-content:center; background:#e63333; border-radius:2px; font-size:8px; font-weight:700; color:#fff; }
+    .grid-note { font-size:11px; color:#777; margin-top:6px; }
+    .sw-table { width:100%; border-collapse:collapse; margin:8px 0; }
+    .sw-table th, .sw-table td { text-align:left; padding:7px 10px; border-bottom:1px solid #2f2f2f; font-size:13px; }
+    .sw-table th { color:#888; font-weight:600; background:#252525; }
+    .swatch { display:inline-block; width:16px; height:16px; border-radius:3px; vertical-align:middle; margin-right:6px; border:1px solid rgba(255,255,255,.15); }
+    table { width:100%; border-collapse:collapse; margin:8px 0 16px; font-size:13px; }
+    th { background:#252525; color:#aaa; font-weight:600; text-align:left; padding:7px 10px; border-bottom:2px solid #3a3a3a; }
+    td { padding:6px 10px; border-bottom:1px solid #2a2a2a; }
+    tr:hover td { background:#242424; }
+    .steps { list-style:none; padding:0; counter-reset:step; }
+    .steps li { counter-increment:step; display:flex; gap:14px; margin-bottom:12px; }
+    .steps li::before { content:counter(step); flex-shrink:0; width:24px; height:24px; border-radius:50%; background:#c8a040; color:#1e1e1e; font-weight:700; font-size:12px; display:flex; align-items:center; justify-content:center; }
+    .steps li p { margin:0; padding-top:3px; }
+    .note { background:#1e2235; border-left:4px solid #5577cc; padding:10px 14px; border-radius:0 4px 4px 0; margin:12px 0; font-size:13px; color:#bbb; }
+    code { font-family:"Consolas","Courier New",monospace; background:#2a2a2a; padding:1px 5px; border-radius:3px; font-size:12px; color:#ce9178; }
+    pre { background:#1a1a1a; border:1px solid #333; padding:16px; border-radius:4px; font-size:12px; overflow-x:auto; color:#9cdcfe; line-height:1.6; font-family:"Consolas",monospace; margin:8px 0 16px; }
+    .cb { background:#202020; border:1px solid #383838; border-radius:4px; padding:14px 16px; margin-bottom:10px; }
+    .cn { font-weight:700; color:#4ec9b0; font-size:13px; margin-bottom:4px; }
+    .cr { color:#888; font-size:12px; margin-bottom:8px; }
+    .mb { font-size:12px; color:#d4d4d4; margin-bottom:3px; padding-left:12px; border-left:2px solid #333; }
+    .mb .t { color:#569cd6; }
+    .mb .n { color:#dcdcaa; }
+    .mb .d { color:#666; margin-left:6px; }
+    footer { margin-top:60px; padding-top:20px; border-top:1px solid #2d2d2d; font-size:12px; color:#444; }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+  <header>
+    <h1>&#x25FE; HitBox Editor</h1>
+    <span class="badge">DOD.HitBox.Editor &#x2014; Unity Editor 拡張</span>
+    <p>グリッドベースのヒットボックス配置ツール。セルをクリックしてコライダー座標を定義し、JSON として保存します。</p>
+    <p>メニュー: <code>DOD &gt; Tools &gt; HitBox Editor</code> から開きます（最小サイズ 540&#x00D7;560）。</p>
+  </header>
+  <section>
+    <h2>ウィンドウ構成</h2>
+    <p>ウィンドウは <strong>3 パネル</strong> で構成されています。上段左右＋下段全幅のレイアウトです。</p>
+    <div class="layout-diagram">
+      <div class="panel side">
+        <div class="panel-label">① サイドパネル <code style="font-size:10px">HitBoxSidePanelView</code></div>
+        <div class="panel-item">
+          幅 160px。配置済みコライダー一覧。<br>
+          <span>ボタン</span> &#x2014; 選択 / 解除（選択中はシアン背景）<br>
+          <span>x ボタン</span> &#x2014; 個別削除<br>
+          <span>テキストフィールド</span> &#x2014; 選択時に展開、名前変更<br>
+          <span>Count:</span> &#x2014; 現在の配置数<br>
+          <span>Clear All</span> &#x2014; 全削除
+        </div>
+      </div>
+      <div class="panel grid">
+        <div class="panel-label">② グリッドパネル <code style="font-size:10px">HitBoxGridView</code></div>
+        <div class="panel-item">
+          9&#x00D7;9 グリッド（セル 36px）。左クリックでトグル配置&#x2F;削除。<br>
+          <span>中央列 (X=4)</span> &#x2014; Y 軸基準。黄色ボーダーでハイライト<br>
+          <span>最下行 (Y=0)</span> &#x2014; X 座標ラベルを表示<br>
+          <span>中央列セル</span> &#x2014; Y 座標ラベルを表示<br>
+          <span>P (4,&#x2212;1)</span> &#x2014; グリッド下にプレイヤーインジケーター
+        </div>
+      </div>
+      <div class="panel file">
+        <div class="panel-label">③ ファイルパネル <code style="font-size:10px">HitBoxFilePanelView</code></div>
+        <div class="panel-item">
+          <span>Collider Size</span> &#x2014; ランタイム側コライダーサイズ・オフセット合わせ用 float（設定アセットに永続化）<br>
+          <span>Save Path</span> &#x2014; JSON 出力先。直接入力または <code>...</code> ダイアログ選択（設定アセットに永続化）<br>
+          <span>Save JSON</span> &#x2014; 現在データを JSON 書き出し ／ <span>Load JSON</span> &#x2014; ファイル選択して読み込み（現データ上書き）
+        </div>
+      </div>
+    </div>
+  </section>
+  <section>
+    <h2>グリッドの座標系</h2>
+    <table>
+      <tr><th>定数</th><th>値</th><th>意味</th></tr>
+      <tr><td><code>GridHalfX</code></td><td>4</td><td>中央列インデックス（X=4 が Y 軸基準列）</td></tr>
+      <tr><td><code>GridMinY</code></td><td>0</td><td>最下行の Y 値（X 軸ラベルを表示）</td></tr>
+      <tr><td><code>GridMaxY</code></td><td>8</td><td>最上行の Y 値</td></tr>
+      <tr><td><code>GridCountX</code></td><td>9</td><td>列数（GridHalfX&#x00D7;2+1）</td></tr>
+      <tr><td><code>GridCountY</code></td><td>9</td><td>行数（GridMaxY&#x2212;GridMinY+1）</td></tr>
+    </table>
+    <p>Y 軸は<strong>上が大きく下が小さい</strong>（最下行=0、最上行=8）。プレイヤーはグリッド外の下に表示され、視覚座標は <code>(4, &#x2212;1)</code> です。</p>
+    <h3>グリッド図（Y=8 が最上行・Y=0 が最下行）</h3>
+    <div class="grid-wrap">
+      <div class="grid-demo">
+        <div class="cell">0,8</div><div class="cell">1,8</div><div class="cell">2,8</div><div class="cell">3,8</div><div class="cell cc">4,8</div><div class="cell">5,8</div><div class="cell">6,8</div><div class="cell">7,8</div><div class="cell">8,8</div>
+        <div class="cell">0,7</div><div class="cell">1,7</div><div class="cell">2,7</div><div class="cell">3,7</div><div class="cell cc">4,7</div><div class="cell">5,7</div><div class="cell">6,7</div><div class="cell">7,7</div><div class="cell">8,7</div>
+        <div class="cell">0,6</div><div class="cell">1,6</div><div class="cell">2,6</div><div class="cell">3,6</div><div class="cell cc">4,6</div><div class="cell">5,6</div><div class="cell">6,6</div><div class="cell">7,6</div><div class="cell">8,6</div>
+        <div class="cell">0,5</div><div class="cell">1,5</div><div class="cell">2,5</div><div class="cell">3,5</div><div class="cell cc">4,5</div><div class="cell">5,5</div><div class="cell">6,5</div><div class="cell">7,5</div><div class="cell">8,5</div>
+        <div class="cell">0,4</div><div class="cell">1,4</div><div class="cell">2,4</div><div class="cell">3,4</div><div class="cell cc">4,4</div><div class="cell">5,4</div><div class="cell">6,4</div><div class="cell">7,4</div><div class="cell">8,4</div>
+        <div class="cell">0,3</div><div class="cell">1,3</div><div class="cell">2,3</div><div class="cell">3,3</div><div class="cell cc">4,3</div><div class="cell">5,3</div><div class="cell">6,3</div><div class="cell">7,3</div><div class="cell">8,3</div>
+        <div class="cell">0,2</div><div class="cell">1,2</div><div class="cell">2,2</div><div class="cell">3,2</div><div class="cell cc">4,2</div><div class="cell">5,2</div><div class="cell">6,2</div><div class="cell">7,2</div><div class="cell">8,2</div>
+        <div class="cell">0,1</div><div class="cell">1,1</div><div class="cell">2,1</div><div class="cell">3,1</div><div class="cell cc">4,1</div><div class="cell">5,1</div><div class="cell">6,1</div><div class="cell">7,1</div><div class="cell">8,1</div>
+        <div class="cell">0,0</div><div class="cell">1,0</div><div class="cell">2,0</div><div class="cell">3,0</div><div class="cell cc ex">4,0</div><div class="cell">5,0</div><div class="cell">6,0</div><div class="cell">7,0</div><div class="cell">8,0</div>
+      </div><br>
+      <div class="pi-row">
+        <div class="pi"></div><div class="pi"></div><div class="pi"></div><div class="pi"></div>
+        <div class="pi on">P<br>(4,&#x2212;1)</div>
+        <div class="pi"></div><div class="pi"></div><div class="pi"></div><div class="pi"></div>
+      </div>
+      <p class="grid-note">黄ボーダー列 = X=4（Y 軸基準） ／ 緑セル (4,0) = プレイヤー直上セル</p>
+    </div>
+  </section>
+  <section>
+    <h2>座標変換（グリッド表示座標 → JSON 保存値）</h2>
+    <p>グリッドクリック時の (cx, cy) は <code>ToRelX / ToRelY</code> で変換されて <code>ColliderData.x / y</code> に保存されます。</p>
+<pre>// X: グリッド中央列(4)を原点0にシフト
+private float ToRelX(int cx) =&gt; cx - GridHalfX;  // cx - 4
+// Y: グリッド値をそのまま保存
+private float ToRelY(int cy) =&gt; cy;</pre>
+    <table>
+      <tr><th>クリックセル (cx, cy)</th><th>保存 x</th><th>保存 y</th><th>備考</th></tr>
+      <tr><td>(4, 0)</td><td>0</td><td>0</td><td>プレイヤー直上・中央</td></tr>
+      <tr><td>(3, 0)</td><td>&#x2212;1</td><td>0</td><td>プレイヤー直上・左1</td></tr>
+      <tr><td>(5, 0)</td><td>1</td><td>0</td><td>プレイヤー直上・右1</td></tr>
+      <tr><td>(4, 1)</td><td>0</td><td>1</td><td>中央・2段上</td></tr>
+      <tr><td>(0, 8)</td><td>&#x2212;4</td><td>8</td><td>左端・最上行</td></tr>
+      <tr><td>(8, 8)</td><td>4</td><td>8</td><td>右端・最上行</td></tr>
+    </table>
+    <div class="note">
+      保存値の範囲: <strong>x: &#x2212;4 &#x301C; +4</strong>（プレイヤー X 相対） ／ <strong>y: 0 &#x301C; 8</strong>（グリッド Y そのまま）<br>
+      <strong>Collider Size は座標変換に影響しません。</strong>変更時に <code>HitBoxData.colliserSize</code> に書き込まれ、ランタイム側で使用します。
+    </div>
+  </section>
+  <section>
+    <h2>セルの色の意味</h2>
+    <table class="sw-table">
+      <tr><th>色</th><th>状態</th><th>実装定数</th></tr>
+      <tr><td><span class="swatch" style="background:#383838"></span>ダークグレー</td><td>空セル</td><td><code>ColorEmpty (0.22,0.22,0.22)</code></td></tr>
+      <tr><td><span class="swatch" style="background:#3d3d44;border-color:rgba(200,160,20,.5)"></span>グレー+黄ボーダー</td><td>中央列 X=4</td><td><code>ColorAxisCol (0.24,0.24,0.27) / ColorBorderAxis (0.80,0.80,0.25)</code></td></tr>
+      <tr><td><span class="swatch" style="background:#26c226"></span>グリーン</td><td>配置済み</td><td><code>ColorOccupied (0.15,0.75,0.15)</code></td></tr>
+      <tr><td><span class="swatch" style="background:#26dadb"></span>シアン</td><td>選択中</td><td><code>ColorSelected (0.15,0.85,0.85)</code></td></tr>
+      <tr><td><span class="swatch" style="background:#e63333"></span>レッド</td><td>プレイヤーインジケーター</td><td><code>ColorPlayer (0.90,0.20,0.20)</code></td></tr>
+    </table>
+  </section>
+  <section>
+    <h2>基本操作</h2>
+    <h3>コライダーの配置・削除</h3>
+    <ul class="steps">
+      <li><p>グリッドセルを <strong>左クリック</strong> → コライダーが追加され緑になる。名前は <code>Collider_00</code> 形式で自動付与。</p></li>
+      <li><p>配置済みのセルを再クリック → 削除（トグル）。</p></li>
+    </ul>
+    <h3>コライダーの選択・名前変更</h3>
+    <ul class="steps">
+      <li><p>サイドパネルのコライダーボタンをクリック → 選択（シアン強調・グリッド連動）。再クリックで解除。</p></li>
+      <li><p>選択中に展開されるテキストフィールドで名前を編集。</p></li>
+    </ul>
+    <h3>削除</h3>
+    <ul class="steps">
+      <li><p>コライダー行右端の <code>x</code> ボタン → 個別削除。</p></li>
+      <li><p>サイドパネル下部の <strong>Clear All</strong> → 全削除（selectedIndex もリセット）。</p></li>
+    </ul>
+  </section>
+  <section>
+    <h2>ファイルパネル</h2>
+    <h3>Collider Size</h3>
+    <p>ランタイム側コライダーのサイズ・オフセット合わせ用の値（float、最小 0）。変更時に <code>HitBoxEditorSettings</code> アセットと <code>HitBoxData.colliserSize</code> に即時書き込まれます。</p>
+    <h3>Save Path</h3>
+    <p>JSON の出力先パス。テキスト直接入力か <code>...</code> ボタンでダイアログ選択。変更は <code>HitBoxEditorSettings</code> アセットに即時保存。デフォルト: <code>Assets/HitBox.json</code></p>
+    <h3>Save JSON</h3>
+    <p>現在の <code>HitBoxData</code> を Save Path に書き出します。ディレクトリが存在しない場合は自動生成。保存後 <code>AssetDatabase.Refresh()</code> を呼び出します。</p>
+    <h3>Load JSON</h3>
+    <p>ファイルダイアログで選択した JSON を読み込みます。<strong>現在のデータは上書きされます。</strong>読み込んだパスが Save Path に自動更新されます。</p>
+  </section>
+  <section>
+    <h2>JSON フォーマット</h2>
+    <p><code>JsonUtility.ToJson(data, prettyPrint:true)</code> で書き出される形式です。</p>
+<pre>{
+  "colliders": [
+    { "name": "Collider_00", "x": 0.0, "y": 0.0 },
+    { "name": "Collider_01", "x": -1.0, "y": 0.0 },
+    { "name": "Collider_02", "x": 1.0, "y": 2.0 }
+  ]
+}</pre>
+    <p><code>x</code>: プレイヤー X 相対（&#x2212;4&#x301C;+4）　<code>y</code>: グリッド Y そのまま（0&#x301C;8）　型: <code>float</code></p>
+  </section>
+  <section>
+    <h2>クラス構成（Editor/）</h2>
+    <div class="cb">
+      <div class="cn">HitBoxEditorWindow : EditorWindow</div>
+      <div class="cr">ウィンドウ本体。各 View の組み立てのみ。ロジックは持たない。</div>
+      <div class="mb"><span class="t">[SerializeField] HitBoxEditorPresenter</span> <span class="n">presenter</span><span class="d">セッション間で状態維持</span></div>
+      <div class="mb"><span class="t">void</span> <span class="n">OnEnable()</span><span class="d">LoadOrCreate でアセット取得 → presenter.Initialize(settings)</span></div>
+      <div class="mb"><span class="t">void</span> <span class="n">OnGUI()</span><span class="d">SidePanel / Grid / FilePanel を描画。変更時に Repaint()</span></div>
+    </div>
+    <div class="cb">
+      <div class="cn">HitBoxEditorPresenter</div>
+      <div class="cr">ビュー状態とビジネスロジックを一元管理する Presenter。</div>
+      <div class="mb"><span class="t">const int</span> <span class="n">GridHalfX=4, GridMinY=0, GridMaxY=8, GridCountX=9, GridCountY=9</span></div>
+      <div class="mb"><span class="t">HitBoxData</span> <span class="n">Data</span><span class="d">現在のコライダーデータ</span></div>
+      <div class="mb"><span class="t">int</span> <span class="n">SelectedIndex</span><span class="d">選択中インデックス（未選択: &#x2212;1）</span></div>
+      <div class="mb"><span class="t">string</span> <span class="n">SavePath</span><span class="d">HitBoxEditorSettings 委譲</span></div>
+      <div class="mb"><span class="t">float</span> <span class="n">ColliderSize</span><span class="d">HitBoxEditorSettings 委譲</span></div>
+      <div class="mb"><span class="t">void</span> <span class="n">Initialize(HitBoxEditorSettings)</span><span class="d">OnEnable から呼び出す</span></div>
+      <div class="mb"><span class="t">int</span> <span class="n">FindColliderAt(cx,cy)</span><span class="d">ToRelX/ToRelY 変換後に Mathf.Approximately で検索</span></div>
+      <div class="mb"><span class="t">void</span> <span class="n">ToggleCell(cx,cy)</span><span class="d">配置済みなら削除、なければ変換値で AddColliderData</span></div>
+      <div class="mb"><span class="t">void</span> <span class="n">SelectCollider / RemoveCollider / RenameCollider / ClearAll</span></div>
+      <div class="mb"><span class="t">void</span> <span class="n">Save()</span><span class="d">ディレクトリ自動作成 → HitBoxJsonRepository.Save → AssetDatabase.Refresh</span></div>
+      <div class="mb"><span class="t">void</span> <span class="n">Load(path)</span><span class="d">HitBoxJsonRepository.Load → data 置換 → SavePath 更新</span></div>
+      <div class="mb"><span class="t">float</span> <span class="n">ToRelX(cx)</span><span class="d">cx &#x2212; GridHalfX（X を中央原点にシフト）</span></div>
+      <div class="mb"><span class="t">float</span> <span class="n">ToRelY(cy)</span><span class="d">cy のまま返す（変換なし）</span></div>
+    </div>
+    <div class="cb">
+      <div class="cn">HitBoxEditorSettings : ScriptableObject</div>
+      <div class="cr">エディター設定の永続化アセット。変更のたびに SetDirty + SaveAssets で即時保存。</div>
+      <div class="mb"><span class="t">static readonly string</span> <span class="n">AssetPath</span><span class="d">= "Assets/Game/Hitbox/Data/HitBoxEditorSettings.asset"（固定）</span></div>
+      <div class="mb"><span class="t">string</span> <span class="n">SavePath</span><span class="d">デフォルト "Assets/HitBox.json"</span></div>
+      <div class="mb"><span class="t">float</span> <span class="n">ColliderSize</span><span class="d">デフォルト 1.0f。Mathf.Approximately で変化検知</span></div>
+      <div class="mb"><span class="t">static HitBoxEditorSettings</span> <span class="n">LoadOrCreate()</span><span class="d">LoadAssetAtPath → null なら CreateDirectory → CreateInstance → CreateAsset</span></div>
+    </div>
+    <div class="cb">
+      <div class="cn">HitBoxGridView (static)</div>
+      <div class="cr">9&#x00D7;9 グリッドの描画・クリック検知。ロジックなし。</div>
+      <div class="mb"><span class="t">const float</span> <span class="n">CellPx=36, GridMargin=20, PlayerIndicatorGap=6</span></div>
+      <div class="mb"><span class="t">bool</span> <span class="n">Draw(presenter,event)</span><span class="d">左クリック時 ToggleCell を呼び true を返す</span></div>
+      <div class="mb"><span class="d">DrawCell（色・ボーダー・軸ラベル）/ DrawPlayerIndicator（グリッド下に赤セル）/ DrawBorder（4辺）</span></div>
+    </div>
+    <div class="cb">
+      <div class="cn">HitBoxSidePanelView (static)</div>
+      <div class="cr">コライダーリストの描画。幅 160px・スクロール対応。</div>
+      <div class="mb"><span class="d">各行: 「名前 (x,y)」ボタン + x ボタン。選択中は TextField 展開。Count ラベル + Clear All ボタン。</span></div>
+    </div>
+    <div class="cb">
+      <div class="cn">HitBoxFilePanelView (static)</div>
+      <div class="cr">Collider Size / Save Path / Save・Load ボタンの描画。</div>
+      <div class="mb"><span class="d">ColliderSize 変更時: presenter.ColliderSize + presenter.Data.colliserSize 更新。SavePath 変更時: presenter.SavePath 更新（即時永続化）。</span></div>
+    </div>
+  </section>
+  <section>
+    <h2>永続化アセット</h2>
+    <div class="note">
+      <strong>保存先:</strong> <code>Assets/Game/Hitbox/Data/HitBoxEditorSettings.asset</code><br>
+      ウィンドウの <code>OnEnable</code> で毎回ロード。存在しなければ自動生成されます。<br>
+      削除するとデフォルト値にリセットされます（SavePath: <code>Assets/HitBox.json</code> ／ ColliderSize: <code>1.0</code>）。
+    </div>
+  </section>
+  <section>
+    <h2>クイックリファレンス</h2>
+    <table>
+      <tr><th>操作</th><th>方法</th></tr>
+      <tr><td>ウィンドウを開く</td><td><code>DOD &gt; Tools &gt; HitBox Editor</code></td></tr>
+      <tr><td>コライダーを配置</td><td>グリッドセルを左クリック</td></tr>
+      <tr><td>コライダーを削除</td><td>配置済みセルを左クリック（トグル）</td></tr>
+      <tr><td>コライダーを選択</td><td>サイドパネルのボタンをクリック</td></tr>
+      <tr><td>名前を変更</td><td>選択後に展開されるテキストフィールドを編集</td></tr>
+      <tr><td>個別削除</td><td>サイドパネルの <code>x</code> ボタン</td></tr>
+      <tr><td>全削除</td><td>サイドパネルの <strong>Clear All</strong></td></tr>
+      <tr><td>JSON 保存</td><td>ファイルパネルの <strong>Save JSON</strong></td></tr>
+      <tr><td>JSON 読み込み</td><td>ファイルパネルの <strong>Load JSON</strong></td></tr>
+    </table>
+  </section>
+  <footer>DOD.HitBox.Editor &nbsp;|&nbsp; Assets/Game/Hitbox/ &nbsp;|&nbsp; Unity 6000.3.x</footer>
+</div>
+</body>
+</html>

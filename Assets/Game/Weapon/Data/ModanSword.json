@@ -1,0 +1,32 @@
+﻿{
+    "weaponName": "ModanWeapon",
+    "damage": 30,
+    "attackDuration": 0.7,
+    "cooldownTime": 0.800000011920929,
+    "colliderSize": 1.0,
+    "isTrigger": true,
+    "attackAnimationTrigger": "Attack",
+    "attackSeId": "",
+    "hitSeId": "",
+    "weaponModelPath": "Assets/Game/Weapon/Prefab/ModanSwordSword.prefab",
+    "weaponModelScale": 0.5,
+    "weaponModelOffset": { "x":-0.2115, "y": 0.1111, "z": -0.0800 },
+    "weaponModelRotation": { "x": -155.11, "y": 75.42, "z": 298.8 },
+    "colliders": [
+        {
+            "name": "Collider_00",
+            "x": 0.0,
+            "y": 1.0
+        },
+        {
+            "name": "Collider_01",
+            "x": 0.0,
+            "y": 2.0
+        },
+        {
+            "name": "Collider_02",
+            "x": 0.0,
+            "y": 0.0
+        }
+    ]
+}

@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9da607dbb6b420e4b89db4d12e359516, type: 3}
+  m_Name: standardDropTable
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Drop.EnemyDropTableParameter
+  noneWeight: 100
+  rarityPools:
+  - rarity: 0
+    weight: 100
+    items:
+    - item: {fileID: 11400000, guid: 2323f995789d3fb4e8efc4edfff8e7c0, type: 2}
+      weight: 1
+      minQuantity: 1
+      maxQuantity: 1

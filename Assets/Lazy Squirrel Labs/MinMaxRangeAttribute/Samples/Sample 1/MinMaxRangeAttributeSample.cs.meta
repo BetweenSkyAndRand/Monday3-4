@@ -1,0 +1,10 @@
+fileFormatVersion: 2
+guid: 73f59dff732a47088b821b5b4dd729f2
+timeCreated: 1731599058
+AssetOrigin:
+  serializedVersion: 1
+  productId: 302500
+  packageName: Min/max Range Attribute
+  packageVersion: 1.0.3
+  assetPath: Assets/Lazy Squirrel Labs/MinMaxRangeAttribute/Samples/Sample 1/MinMaxRangeAttributeSample.cs
+  uploadId: 710576
